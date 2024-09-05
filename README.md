@@ -1,2 +1,2 @@
 # crispr-pipeline
-Pipeline for finding and evaluating gRNAs and other required CRISPR tools
+Pipeline for determining gRNAs and other essential CRISPR tools
