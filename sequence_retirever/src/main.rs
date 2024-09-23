@@ -21,6 +21,7 @@ struct Transcript {
     start: u64,
     end: u64,
     strand: i8,
+    seq_region_name: String, // This will store the chromosome name
     #[serde(rename = "Exon")]
     exons: Vec<Exon>,
 }
@@ -32,9 +33,9 @@ struct Exon {
     end: u64,
     strand: i8,
     exon_number: Option<String>,
-    // Include other fields if necessary
 }
 
+// Fetch the gene ID using the gene symbol
 fn fetch_gene_id(gene_symbol: &str) -> Result<String, Box<dyn Error>> {
     println!("Fetching gene ID for gene symbol: {}", gene_symbol);
     let url = format!(
@@ -58,6 +59,7 @@ fn fetch_gene_id(gene_symbol: &str) -> Result<String, Box<dyn Error>> {
     Err("Gene ID not found.".into())
 }
 
+// Fetch transcript information for a gene
 fn fetch_transcripts(gene_id: &str) -> Result<Vec<TranscriptInfo>, Box<dyn Error>> {
     println!("Fetching transcripts for gene ID: {}", gene_id);
     let url = format!(
@@ -75,6 +77,7 @@ fn fetch_transcripts(gene_id: &str) -> Result<Vec<TranscriptInfo>, Box<dyn Error
     Ok(transcripts)
 }
 
+// Fetch detailed transcript information, including chromosome (seq_region_name)
 fn fetch_transcript(transcript_id: &str) -> Result<Transcript, Box<dyn Error>> {
     println!("Fetching transcript information for transcript ID: {}", transcript_id);
     let url = format!(
@@ -100,11 +103,11 @@ fn fetch_transcript(transcript_id: &str) -> Result<Transcript, Box<dyn Error>> {
     }
 }
 
-
-fn cdna_to_genomic(cdna_pos: u64, transcript: &Transcript) -> Option<u64> {
+// Convert a cDNA position to genomic coordinates with context range
+fn cdna_to_genomic_with_context(cdna_pos: u64, transcript: &Transcript, context: u64) -> Option<(u64, u64, u64)> {
     let mut coding_pos = 0;
 
-    println!("Converting cDNA position to genomic coordinates...");
+    println!("Converting cDNA position to genomic coordinates with context...");
     for (i, exon) in transcript.exons.iter().enumerate() {
         let exon_length = exon.end - exon.start + 1;
 
@@ -124,18 +127,58 @@ fn cdna_to_genomic(cdna_pos: u64, transcript: &Transcript) -> Option<u64> {
             } else {
                 exon.end - offset
             };
+
+            let start = genomic_pos.saturating_sub(context);
+            let end = genomic_pos + context;
+
             println!(
-                "cDNA position {} falls within exon {}. Genomic coordinate is {}.",
+                "cDNA position {} falls within exon {}. Genomic coordinates: {}-{} (with context).",
                 cdna_pos,
                 i + 1,
-                genomic_pos
+                start,
+                end
             );
-            return Some(genomic_pos);
+            return Some((start, end, genomic_pos));
         }
         coding_pos += exon_length;
     }
     println!("cDNA position {} does not fall within the coding exons.", cdna_pos);
     None
+}
+
+// Fetch the sequence for a specific region using the chromosome name
+fn fetch_sequence(chrom: &str, start: u64, end: u64) -> Result<String, Box<dyn Error>> {
+    println!("Fetching sequence for {}:{}-{}", chrom, start, end);
+    let url = format!(
+        "https://rest.ensembl.org/sequence/region/human/{}:{}..{}:1?",
+        chrom, start, end
+    );
+    let client = Client::new();
+    let response = client
+        .get(&url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "text/plain")
+        .send()?;
+
+    let sequence = response.text()?;
+    Ok(sequence)
+}
+
+// Function to highlight the mutation within the sequence
+fn print_sequence_with_mutation(sequence: &str, mutation_pos: usize, original: char, mutated: char) {
+    let mut mutated_sequence = sequence.to_string();
+    let chars: Vec<char> = mutated_sequence.chars().collect();
+
+    println!("Original sequence: {}\n", sequence);
+    mutated_sequence.replace_range(mutation_pos..mutation_pos + 1, &mutated.to_string());
+
+    println!(
+        "Original base at position {}: {} -> Mutated base: {}\n",
+        mutation_pos + 1,
+        original,
+        mutated
+    );
+    println!("Mutated sequence: {}", mutated_sequence);
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -164,14 +207,28 @@ fn main() -> Result<(), Box<dyn Error>> {
     let transcript = fetch_transcript(&selected_transcript_id)?;
 
     println!("Transcript Strand: {}", transcript.strand);
+    println!("Chromosome: {}", transcript.seq_region_name);
 
     // cDNA mutation position
     let cdna_position = 1058;
+    let context = 30; // Set context region around the mutation site
+    let original_base = 'G'; // Original base in the reference
+    let mutated_base = 'A'; // Mutated base
+
     println!("Mapping cDNA position: {}", cdna_position);
 
-    // Convert cDNA position to genomic coordinate
-    if let Some(genomic_coord) = cdna_to_genomic(cdna_position, &transcript) {
-        println!("Genomic coordinate for c.1058G>A is: {}", genomic_coord);
+    // Convert cDNA position to genomic coordinate with context
+    if let Some((genomic_start, genomic_end, genomic_mutation_pos)) =
+        cdna_to_genomic_with_context(cdna_position, &transcript, context)
+    {
+        // Fetch the sequence in the genomic region around the mutation
+        let sequence = fetch_sequence(&transcript.seq_region_name, genomic_start, genomic_end)?;
+
+        // Find the relative mutation position in the fetched sequence
+        let relative_mutation_pos = (genomic_mutation_pos - genomic_start) as usize;
+
+        // Print the sequence with the mutation highlighted
+        print_sequence_with_mutation(&sequence, relative_mutation_pos, original_base, mutated_base);
     } else {
         println!("Could not map cDNA position to genomic coordinate.");
     }

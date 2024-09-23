@@ -8,7 +8,39 @@
     <cargoProject FILE="$PROJECT_DIR$/sequence_retirever/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Merge" />
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Merge">
+      <change beforePath="$PROJECT_DIR$/.idea/crispr_pipeline.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/crispr_pipeline.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/.rustc_info.json" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/.rustc_info.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/form_urlencoded-0066cdba821a7c39.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/form_urlencoded-0066cdba821a7c39.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/futures_channel-1668a13feddb82cc.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/futures_channel-1668a13feddb82cc.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/futures_util-081521022f8f5420.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/futures_util-081521022f8f5420.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/h2-05c87dfbc11ead10.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/h2-05c87dfbc11ead10.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/http-629b22387eb09ed1.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/http-629b22387eb09ed1.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/http_body-627c52d77d0e1bbd.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/http_body-627c52d77d0e1bbd.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/httparse-68eed242fba0927c.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/httparse-68eed242fba0927c.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/hyper-38e7b2109e725dca.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/hyper-38e7b2109e725dca.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/hyper_tls-a9abc35480295406.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/hyper_tls-a9abc35480295406.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/idna-495d8df47dd4073f.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/idna-495d8df47dd4073f.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/lock_api-23e7af4586a696eb.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/lock_api-23e7af4586a696eb.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/native_tls-d3d9030d19bd6901.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/native_tls-d3d9030d19bd6901.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/openssl-ad01d64df96f6968.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/openssl-ad01d64df96f6968.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/openssl_sys-c34ff9548e8cdb6c.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/openssl_sys-c34ff9548e8cdb6c.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/parking_lot-52864fd50975a71f.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/parking_lot-52864fd50975a71f.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/parking_lot_core-b761fab5156cae5c.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/parking_lot_core-b761fab5156cae5c.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/reqwest-172f39055eb79440.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/reqwest-172f39055eb79440.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/serde-cb82d55645abf41a.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/serde-cb82d55645abf41a.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/serde_json-f058e4a52ef1ac8e.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/serde_json-f058e4a52ef1ac8e.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/serde_urlencoded-69920340ef22aab2.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/serde_urlencoded-69920340ef22aab2.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/slab-0f9b7d74b3d6e4b5.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/slab-0f9b7d74b3d6e4b5.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/tokio-7ef45daeb355a49f.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/tokio-7ef45daeb355a49f.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/tokio_native_tls-5428a237d4994d7c.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/tokio_native_tls-5428a237d4994d7c.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/tokio_util-414ce3f35be34a41.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/tokio_util-414ce3f35be34a41.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/tracing-d9362a82bf8d61fe.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/tracing-d9362a82bf8d61fe.d" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/url-51617c69476f8cb5.d" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retirever/target/debug/deps/url-51617c69476f8cb5.d" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -53,6 +85,7 @@
     &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;last_opened_file_path&quot;: &quot;/home/mrcrispr/crispr_pipeline&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -68,7 +101,7 @@
 }</component>
   <component name="RunManager">
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="command" value="run --package crispr_apis --bin crispr_apis" />
+      <option name="command" value="run" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$/sequence_retirever" />
       <envs />
       <option name="emulateTerminal" value="true" />
@@ -101,6 +134,11 @@
       <workItem from="1726648559824" duration="7506000" />
       <workItem from="1726732293644" duration="349000" />
       <workItem from="1726734203650" duration="1409000" />
+      <workItem from="1726737099756" duration="313000" />
+      <workItem from="1726737418729" duration="421000" />
+      <workItem from="1726737844345" duration="6613000" />
+      <workItem from="1726820938175" duration="2560000" />
+      <workItem from="1727091625248" duration="318000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -118,7 +156,15 @@
       <option name="project" value="LOCAL" />
       <updated>1726737029580</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Merge">
+      <option name="closed" value="true" />
+      <created>1726737135346</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1726737135346</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -129,7 +175,19 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="master" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
