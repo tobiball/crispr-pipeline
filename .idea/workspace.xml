@@ -7,8 +7,11 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Pull Gene info">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Ignore files">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/gene_sequence.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/gene_sequence.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/protein_domains.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/protein_domains.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/regulatory_elements.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/regulatory_elements.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -106,7 +109,7 @@
       <workItem from="1726820938175" duration="2560000" />
       <workItem from="1727091625248" duration="8276000" />
       <workItem from="1727163017407" duration="241000" />
-      <workItem from="1727163711725" duration="1723000" />
+      <workItem from="1727163711725" duration="2878000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -148,7 +151,15 @@
       <option name="project" value="LOCAL" />
       <updated>1727164287715</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Ignore files">
+      <option name="closed" value="true" />
+      <created>1727165555426</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1727165555426</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -185,6 +196,7 @@
     <MESSAGE value="Merge" />
     <MESSAGE value="Explore mutation proximity" />
     <MESSAGE value="Pull Gene info" />
-    <option name="LAST_COMMIT_MESSAGE" value="Pull Gene info" />
+    <MESSAGE value="Ignore files" />
+    <option name="LAST_COMMIT_MESSAGE" value="Ignore files" />
   </component>
 </project>

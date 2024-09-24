@@ -9,7 +9,7 @@ pub struct RegulatoryFeature {
     pub id: String,
     pub start: u64,
     pub end: u64,
-    pub strand: i8,
+    // pub strand: i8,
     pub feature_type: String,
 }
 

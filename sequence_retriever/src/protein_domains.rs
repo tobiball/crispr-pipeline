@@ -8,12 +8,12 @@ use std::error::Error;
 pub struct ProteinFeature {
     pub start: u64,
     pub end: u64,
-    pub id: Option<String>,
+    // pub id: Option<String>,
     pub interpro: Option<String>,
     pub description: Option<String>,
-    pub logic_name: Option<String>,
-    pub display_id: Option<String>,
-    pub interpro_description: Option<String>,
+    // pub logic_name: Option<String>,
+    // pub display_id: Option<String>,
+    // pub interpro_description: Option<String>,
 }
 
 pub fn fetch_protein_domains(transcript_id: &str) -> Result<Vec<ProteinFeature>, Box<dyn Error>> {

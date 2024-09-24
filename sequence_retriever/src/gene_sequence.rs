@@ -13,7 +13,7 @@ pub struct Xref {
 
 #[derive(Deserialize, Debug)]
 pub struct GeneInfo {
-    pub id: String,
+    // pub id: String,
     pub assembly_name: String,
     pub start: u64,
     pub end: u64,
