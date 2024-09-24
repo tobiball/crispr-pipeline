@@ -6,6 +6,8 @@ mod protein_domains;
 mod snps;
 mod regulatory_elements;
 mod paralogs;
+mod chopchop_integration;
+mod gene_analysis;
 
 use crate::gene_sequence::{fetch_gene_id, fetch_gene_info, fetch_gene_sequence};
 use crate::exon_intron::fetch_all_transcripts;
@@ -40,25 +42,38 @@ fn main() -> Result<(), Box<dyn Error>> {
     let all_transcripts = fetch_all_transcripts(&gene_id)?;
     println!("Total transcripts found: {}", all_transcripts.len());
 
-    // Select canonical transcript
-    let selected_transcript = all_transcripts
-        .iter()
-        .find(|t| t.is_canonical == Some(1))
-        .unwrap_or(&all_transcripts[0]);
-    let selected_transcript_id = &selected_transcript.id;
-    println!("Selected transcript ID: {}", selected_transcript_id);
+    // Limit to the first 3 transcripts for printing
+    let max_transcripts_to_display = 3;
+    for (i, transcript) in all_transcripts.iter().take(max_transcripts_to_display).enumerate() {
+        println!("Transcript {} - ID: {}", i + 1, transcript.id);
+        println!("Is Canonical: {}", transcript.is_canonical.unwrap_or(0));
+        println!("Number of Exons: {}", transcript.exons.len());
+    }
+    if all_transcripts.len() > max_transcripts_to_display {
+        println!("...and {} more transcripts", all_transcripts.len() - max_transcripts_to_display);
+    }
 
     // Fetch protein features (domains) for the selected transcript
+    let selected_transcript_id = &all_transcripts[0].id; // Assume first transcript for simplicity
     let protein_features = fetch_protein_domains(selected_transcript_id)?;
-    println!("Protein features found: {}", protein_features.len());
+    println!("Total protein features found: {}", protein_features.len());
 
-    for feature in &protein_features {
+    // Limit to first 5 protein features for printing
+    let max_protein_features_to_display = 5;
+    for (i, feature) in protein_features.iter().take(max_protein_features_to_display).enumerate() {
         println!(
-            "Feature: {} (InterPro ID: {}), Start: {}, End: {}",
+            "Protein Feature {}: {} (InterPro ID: {}), Start: {}, End: {}",
+            i + 1,
             feature.description.as_deref().unwrap_or("N/A"),
             feature.interpro.as_deref().unwrap_or("N/A"),
             feature.start,
             feature.end
+        );
+    }
+    if protein_features.len() > max_protein_features_to_display {
+        println!(
+            "...and {} more protein features",
+            protein_features.len() - max_protein_features_to_display
         );
     }
 
@@ -68,17 +83,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         gene_info.start,
         gene_info.end,
     )?;
-    println!("Total SNPs found in gene region: {}", snps.len());
+    println!("Total SNPs found: {}", snps.len());
 
-    // for snp in &snps {
-    //     println!(
-    //         "SNP ID: {}, Position: {}, Alleles: {}, Consequences: {:?}",
-    //         snp.id,
-    //         snp.start,
-    //         snp.allele_string.as_deref().unwrap_or("N/A"),
-    //         snp.consequence_type.as_ref().unwrap_or(&vec!["N/A".to_string()])
-    //     );
-    // }
+    // Limit to first 5 SNPs for printing
+    let max_snps_to_display = 5;
+    for (i, snp) in snps.iter().take(max_snps_to_display).enumerate() {
+        println!(
+            "SNP {}: ID: {}, Position: {}, Alleles: {}",
+            i + 1,
+            snp.id,
+            snp.start,
+            snp.allele_string.as_deref().unwrap_or("N/A")
+        );
+    }
+    if snps.len() > max_snps_to_display {
+        println!("...and {} more SNPs", snps.len() - max_snps_to_display);
+    }
 
     // Fetch regulatory elements in the gene region
     let regulatory_elements = fetch_regulatory_elements(
@@ -86,15 +106,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         gene_info.start,
         gene_info.end,
     )?;
-    println!(
-        "Total regulatory elements found in gene region: {}",
-        regulatory_elements.len()
-    );
+    println!("Total regulatory elements found: {}", regulatory_elements.len());
 
-    for element in &regulatory_elements {
+    // Limit to first 3 regulatory elements for printing
+    let max_reg_elements_to_display = 3;
+    for (i, element) in regulatory_elements.iter().take(max_reg_elements_to_display).enumerate() {
         println!(
-            "Regulatory Feature ID: {}, Type: {}, Start: {}, End: {}",
-            element.id, element.feature_type, element.start, element.end
+            "Regulatory Element {}: ID: {}, Type: {}, Start: {}, End: {}",
+            i + 1, element.id, element.feature_type, element.start, element.end
+        );
+    }
+    if regulatory_elements.len() > max_reg_elements_to_display {
+        println!(
+            "...and {} more regulatory elements",
+            regulatory_elements.len() - max_reg_elements_to_display
         );
     }
 
@@ -102,10 +127,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let paralogs = fetch_paralogous_genes(&gene_id, "human")?;
     println!("Total paralogous genes found: {}", paralogs.len());
 
-    for homology in &paralogs {
+    // Limit to first 3 paralogs for printing
+    let max_paralogs_to_display = 3;
+    for (i, homology) in paralogs.iter().take(max_paralogs_to_display).enumerate() {
         println!(
-            "Paralogous Gene ID: {}, Percentage Identity: {:.2}%",
-            homology.target.id, homology.target.perc_id
+            "Paralog {}: ID: {}, Percentage Identity: {:.2}%",
+            i + 1,
+            homology.target.id,
+            homology.target.perc_id
+        );
+    }
+    if paralogs.len() > max_paralogs_to_display {
+        println!(
+            "...and {} more paralogous genes",
+            paralogs.len() - max_paralogs_to_display
         );
     }
 
