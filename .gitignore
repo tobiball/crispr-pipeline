@@ -1,3 +1,14 @@
 target/
 *.lock
 .idea/
+/chopchop/config.json
+/chopchop/gene_table.csv
+/chopchop/hg38.1.ebwt
+/chopchop/hg38.2.ebwt
+/chopchop/hg38.2bit.1
+/chopchop/hg38.3.ebwt
+/chopchop/hg38.4.ebwt
+/chopchop/hg38.rev.1.ebwt
+/chopchop/hg38.rev.2.ebwt
+/chopchop/mountain.pl
+/chopchop/README.md
