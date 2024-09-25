@@ -1,15 +1,12 @@
-// src/chopchop_integration.rs
-
 use std::error::Error;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::Command;
 
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde::Deserialize;
-
 
 /// Represents the result of a CHOPCHOP guide RNA search
 #[derive(Debug, Deserialize)]
@@ -26,7 +23,7 @@ pub struct ChopchopOptions {
     pub chopchop_script: String,   // e.g., "chopchop/chopchop.py"
     pub config_file: String,       // e.g., "chopchop/config.json"
     pub genome: String,
-    pub target_region: String, // Format: "chrom:start-end"
+    pub target_region: String,     // Format: "chrom:start-end"
     pub output_dir: String,
     pub pam_sequence: String,
     pub guide_length: u8,
@@ -34,9 +31,10 @@ pub struct ChopchopOptions {
     pub max_mismatches: u8,
 }
 
-/// Downloads the refGene table from UCSC, processes it, and saves it as gene_table.csv
+/// Downloads the refGene table from UCSC, processes it, and saves it in the chopchop directory
 pub fn download_and_format_gene_table() -> Result<(), Box<dyn Error>> {
-    let gene_table_path = Path::new("chopchop/hg38.gene_table.csv");
+    // Path to save the gene table in the chopchop directory
+    let gene_table_path = Path::new("/home/mrcrispr/crispr_pipeline/chopchop/hg38.gene_table.csv");
     let url = "http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.txt.gz";
 
     println!("Downloading refGene table from UCSC...");
@@ -128,8 +126,8 @@ pub fn download_and_format_gene_table() -> Result<(), Box<dyn Error>> {
 
 /// Ensures that the gene table is up-to-date by downloading and formatting it
 pub fn ensure_gene_table_up_to_date() -> Result<(), Box<dyn Error>> {
-    // Check if the gene table already exists
-    let gene_table_path = Path::new("chopchop/hg38.gene_table.csv");
+    // Check if the gene table already exists in the chopchop directory
+    let gene_table_path = Path::new("/home/mrcrispr/crispr_pipeline/chopchop/hg38.gene_table.csv");
     if gene_table_path.exists() {
         println!(
             "Gene table already exists at {:?}. Skipping download.",
@@ -143,43 +141,6 @@ pub fn ensure_gene_table_up_to_date() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Adds a specific gene to the gene table if it's not already present
-pub fn add_gene_to_table(gene_info: &str) -> Result<(), Box<dyn Error>> {
-    let gene_table_path = Path::new("chopchop/hg38.gene_table.csv");
-
-    // Extract the gene name from the gene_info string (assuming it's in the 'name2' field)
-    let gene_name = gene_info
-        .split('\t')
-        .nth(11)
-        .unwrap_or("")
-        .to_string();
-
-    // Check if the gene is already in the table
-    let gene_exists = {
-        let file = File::open(&gene_table_path)?;
-        let reader = BufReader::new(file);
-        reader
-            .lines()
-            .any(|line| line.unwrap_or_default().contains(&gene_name))
-    };
-
-    if gene_exists {
-        println!("Gene '{}' already exists in the gene table.", gene_name);
-    } else {
-        // Manually add the gene information
-        // Ensure that gene_info is correctly formatted as a tab-separated line
-        let mut gene_table_file = File::options()
-            .append(true)
-            .open(&gene_table_path)?;
-
-        writeln!(gene_table_file, "{}", gene_info)?;
-        println!("Gene '{}' added to the gene table.", gene_name);
-    }
-
-    Ok(())
-}
-
-/// Runs CHOPCHOP with the specified options
 /// Runs CHOPCHOP with the specified options
 pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
     println!("Executing CHOPCHOP for region: {}", options.target_region);
@@ -219,7 +180,7 @@ pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
         .arg(options.max_mismatches.to_string())
         .arg("-J") // JSON output
         .arg("-P") // Primer design
-        .current_dir("/home/mrcrispr/crispr_pipeline/chopchop") // Set the current directory
+        .current_dir("/home/mrcrispr/crispr_pipeline/chopchop") // Ensure execution in chopchop directory
         .output()?;  // Capture output and error
 
     // Log the raw output
@@ -243,38 +204,42 @@ pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-
-/// Parses CHOPCHOP JSON results
+/// Parses CHOPCHOP output results (fallback to .offtargets if results.json is missing)
 pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<ChopchopResult>, Box<dyn Error>> {
-    let results_path = Path::new(output_dir).join("results.json"); // Adjust if different
-    if !results_path.exists() {
-        return Err(format!("CHOPCHOP results file not found at {:?}", results_path).into());
+    let json_results_path = Path::new(output_dir).join("results.json");
+    let offtargets_results_path = Path::new(output_dir).join("1.offtargets"); // Example fallback
+
+    // First try to parse the results.json file
+    if json_results_path.exists() {
+        let file = File::open(&json_results_path)?;
+        let reader = BufReader::new(file);
+        let results: Vec<ChopchopResult> = serde_json::from_reader(reader)?;
+        return Ok(results);
     }
 
-    let file = File::open(&results_path)?;
-    let reader = BufReader::new(file);
-    let results: Vec<ChopchopResult> = serde_json::from_reader(reader)?;
-    Ok(results)
-}
+    // If results.json is not found, try parsing the .offtargets file
+    if offtargets_results_path.exists() {
+        let file = File::open(&offtargets_results_path)?;
+        let reader = BufReader::new(file);
 
-use std::env;
-
-pub fn test_two_bit_to_fa() -> Result<(), Box<dyn Error>> {
-    let existing_path = env::var("PATH").unwrap_or_default();
-    let new_path = format!("/home/mrcrispr/crispr_pipeline/chopchop:{}", existing_path);
-
-    let output = Command::new("twoBitToFa")
-        .arg("/home/mrcrispr/crispr_pipeline/chopchop/hg38.2bit:chr1")
-        .arg("test_output.fa")
-        .env("PATH", new_path)
-        .output()?;
-
-    println!("twoBitToFa STDOUT:\n{}", String::from_utf8_lossy(&output.stdout));
-    println!("twoBitToFa STDERR:\n{}", String::from_utf8_lossy(&output.stderr));
-
-    if !output.status.success() {
-        return Err("Failed to run twoBitToFa from Rust".into());
+        // Assuming .offtargets file is in a structured text format (you may need to adjust this parsing)
+        let mut results = Vec::new();
+        for line in reader.lines() {
+            let line = line?;
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            if fields.len() < 6 {
+                continue; // Skip malformed lines
+            }
+            let result = ChopchopResult {
+                guide_sequence: fields[1].to_string(),
+                pos: fields[2].parse()?,
+                strand: fields[3].to_string(),
+                score: fields[5].parse()?, // Assuming score is in the 6th column
+            };
+            results.push(result);
+        }
+        return Ok(results);
     }
 
-    Ok(())
+    Err(format!("CHOPCHOP results not found in {} or {}.", json_results_path.display(), offtargets_results_path.display()).into())
 }

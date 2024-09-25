@@ -18,7 +18,7 @@ use crate::paralogs::fetch_paralogous_genes;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use crate::chopchop_integration::{parse_chopchop_results, run_chopchop, ensure_gene_table_up_to_date, ChopchopOptions, test_two_bit_to_fa};
+use crate::chopchop_integration::{parse_chopchop_results, run_chopchop, ensure_gene_table_up_to_date, ChopchopOptions};
 use crate::gene_analysis::GeneInfo;
 
 
@@ -26,7 +26,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 
 
-    test_two_bit_to_fa().expect("TODO: panic message");
     // Initialize logging (optional)
     // env_logger::init(); // Uncomment if using a logging framework
 
@@ -126,28 +125,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         // Parse results
-        match parse_chopchop_results(&chopchop_options.output_dir) {
-            Ok(results) => {
-                println!("CHOPCHOP Results for {}:", region_str);
-                for (i, guide) in results.iter().enumerate().take(5) { // Display top 5 gRNAs
-                    println!(
-                        "Guide {}: Sequence: {}, Position: {}, Strand: {}, Score: {}",
-                        i + 1, guide.guide_sequence, guide.pos, guide.strand, guide.score
-                    );
-                }
-
-                // Save results to a summary file
-                let summary_path = std::path::Path::new(&chopchop_options.output_dir).join("chopchop_summary.txt");
-                let mut file = File::create(&summary_path)?;
-                for guide in &results {
-                    writeln!(file, "{:?}", guide)?;
-                }
-                println!("Summary saved to {:?}", summary_path);
-            }
-            Err(e) => {
-                eprintln!("Failed to parse CHOPCHOP results for {}: {}", region_str, e);
-            }
-        }
     }
 
     // Step 10: (Optional) Apply Machine Learning to prioritize gRNAs further

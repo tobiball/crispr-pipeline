@@ -12,3 +12,6 @@ target/
 /chopchop/hg38.rev.2.ebwt
 /chopchop/mountain.pl
 /chopchop/README.md
+chopchop/hg38.2bit
+chopchop/hg38.fa
+chopchop/hg38.gene_table

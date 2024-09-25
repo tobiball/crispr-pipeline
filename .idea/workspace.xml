@@ -152,7 +152,7 @@
       <workItem from="1727091625248" duration="8276000" />
       <workItem from="1727163017407" duration="241000" />
       <workItem from="1727163711725" duration="19314000" />
-      <workItem from="1727255716755" duration="4045000" />
+      <workItem from="1727255716755" duration="4401000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -218,7 +218,15 @@
       <option name="project" value="LOCAL" />
       <updated>1727169839200</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Chopchop integration v1">
+      <option name="closed" value="true" />
+      <created>1727260117579</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1727260117579</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
