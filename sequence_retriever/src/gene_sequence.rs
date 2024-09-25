@@ -12,7 +12,7 @@ pub struct Xref {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct GeneInfo {
+pub struct GeneInfoBasic {
     // pub id: String,
     pub assembly_name: String,
     pub start: u64,
@@ -43,7 +43,7 @@ pub fn fetch_gene_id(gene_symbol: &str) -> Result<String, Box<dyn Error>> {
     Err("Gene ID not found.".into())
 }
 
-pub fn fetch_gene_info(gene_id: &str) -> Result<GeneInfo, Box<dyn Error>> {
+pub fn fetch_gene_info(gene_id: &str) -> Result<GeneInfoBasic, Box<dyn Error>> {
     println!("Fetching gene information for gene ID: {}", gene_id);
     let url = format!("https://rest.ensembl.org/lookup/id/{}", gene_id);
     let client = Client::new();
@@ -53,7 +53,7 @@ pub fn fetch_gene_info(gene_id: &str) -> Result<GeneInfo, Box<dyn Error>> {
         .send()?;
 
     if response.status().is_success() {
-        let gene_info: GeneInfo = response.json()?;
+        let gene_info: GeneInfoBasic = response.json()?;
         Ok(gene_info)
     } else {
         let status = response.status();
