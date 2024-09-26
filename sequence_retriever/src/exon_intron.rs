@@ -4,6 +4,9 @@ use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::error::Error;
 use serde_json::Value;
+use reqwest::header::USER_AGENT;
+use std::thread;
+use std::time::Duration;
 
 #[derive(Deserialize, Debug)]
 pub struct ExonDetail {
@@ -12,14 +15,15 @@ pub struct ExonDetail {
     pub end: u64,
     pub strand: i8,
     pub exon_number: String,
-    // Additional fields
+    pub seq_region_name: String, // Add this field
     #[serde(default)]
-    pub expression_level: Option<f64>,   // Expression level (e.g., from GTEx)
+    pub expression_level: Option<f64>,
     #[serde(default)]
-    pub conservation_score: Option<f64>, // Conservation score (e.g., from PhastCons)
+    pub conservation_score: Option<f64>,
     #[serde(default)]
-    pub is_paralogous: bool,             // True if exon is paralogous
+    pub is_paralogous: bool,
 }
+
 
 
 #[derive(Deserialize, Debug)]
@@ -63,13 +67,15 @@ pub fn fetch_all_transcripts(gene_id: &str) -> Result<Vec<TranscriptDetail>, Box
                     end: e["end"].as_u64().unwrap_or(0),
                     strand: e["strand"].as_i64().unwrap_or(0) as i8,
                     exon_number: e["exon_number"].as_str().unwrap_or("").to_string(),
+                    seq_region_name: e["seq_region_name"].as_str().unwrap_or("").to_string(), // Add this line
                     // Initialize additional fields
-                    expression_level: None,     // Will be fetched later
-                    conservation_score: None,   // Will be fetched later
-                    is_paralogous: false,       // Will be determined later
+                    expression_level: None,
+                    conservation_score: None,
+                    is_paralogous: false,
                 };
                 exons.push(exon);
             }
+
 
             let transcript = TranscriptDetail {
                 id: t["id"].as_str().unwrap_or("").to_string(),
@@ -90,60 +96,189 @@ pub fn fetch_all_transcripts(gene_id: &str) -> Result<Vec<TranscriptDetail>, Box
     }
 }
 
-/// Fetch expression levels for exons using GTEx API.
-pub fn fetch_expression_levels(exons: &mut [ExonDetail], gene_symbol: &str) -> Result<(), Box<dyn Error>> {
-    println!("Fetching expression levels for gene symbol: {}", gene_symbol);
+/// Fetch expression levels for exons using Expression Atlas API.
+pub fn fetch_expression_levels(exons: &mut [ExonDetail], gencode_id: &str) -> Result<(), Box<dyn Error>> {
+    println!("Fetching expression levels for gene ID: {}", gencode_id);
 
-    // GTEx API endpoint for median gene expression by tissue
+    // Define the API endpoint and URL
     let url = format!(
-        "https://gtexportal.org/rest/v1/expression/geneExpression?geneId={}&format=json",
-        gene_symbol
+        "https://gtexportal.org/api/v2/expression/medianExonExpression?gencodeId={}&datasetId=gtex_v8",
+        gencode_id
     );
+
+    // Create a new HTTP client
     let client = Client::new();
     let response = client.get(&url).send()?;
 
+    // Handle successful response
     if response.status().is_success() {
         let data: Value = response.json()?;
-        let expression_data = data["geneExpression"]
+
+        // Assuming the API returns a field "data" with expression levels in an array
+        let expression_data = data["data"]
             .as_array()
             .ok_or("No expression data found")?;
 
-        // For simplicity, we'll use the average expression across tissues
-        let mut total_expression = 0.0;
-        let mut count = 0.0;
-        for expr in expression_data {
-            if let Some(tpm) = expr["tpm"].as_f64() {
-                total_expression += tpm;
-                count += 1.0;
+        // Iterate over the fetched exon data and match it with your exon list
+        for exon in exons.iter_mut() {
+            if let Some(exon_data) = expression_data.iter().find(|&expr| expr["exon_id"].as_str() == Some(&exon.id)) {
+                if let Some(expression_value) = exon_data["median"].as_f64() {
+                    exon.expression_level = Some(expression_value);
+                } else {
+                    exon.expression_level = Some(0.0);
+                }
+            } else {
+                exon.expression_level = Some(0.0);
             }
         }
-        let average_expression = if count > 0.0 { total_expression / count } else { 0.0 };
 
-        // Assign the same expression level to all exons (you might want to refine this)
-        for exon in exons.iter_mut() {
-            exon.expression_level = Some(average_expression);
-        }
 
         Ok(())
     } else {
+        // Handle HTTP errors
         let status = response.status();
         let error_text = response.text()?;
         eprintln!("Error fetching expression levels: HTTP {}", status);
         eprintln!("Error details: {}", error_text);
-        Err("Failed to fetch expression levels.".into())
+
+        // Assign default values to exons in case of an error
+        for exon in exons.iter_mut() {
+            exon.expression_level = Some(0.0);  // Assign default value in case of error
+        }
+
+        Ok(())
     }
 }
 
-/// Fetch conservation scores for exons using Ensembl's Constrained Elements API.
+
+
+/// Fetch conservation scores for exons using the Ensembl Conservation API.
 pub fn fetch_conservation_scores(exons: &mut [ExonDetail]) -> Result<(), Box<dyn Error>> {
     println!("Fetching conservation scores for exons");
 
     let client = Client::new();
 
     for exon in exons.iter_mut() {
+        // Construct the region identifier in the format species:chromosome:start-end
+        let region_id = format!(
+            "human:{}:{}-{}",
+            exon.seq_region_name, exon.start, exon.end
+        );
+
         let url = format!(
-            "https://rest.ensembl.org/overlap/region/human/{}:{}-{}?feature=constrained_element",
-            "chr", exon.start, exon.end
+            "https://rest.ensembl.org/info/conservation/{}",
+            region_id
+        );
+        println!("Requesting URL: {}", url);
+
+        // Make the request with retry logic to handle rate limiting
+        let response = make_request_with_retry(&client, &url, 5)?;
+
+        if response.status().is_success() {
+            let data: Value = response.json()?;
+
+            // The API returns a list of conservation scores for the region
+            let scores = data["conservation_scores"]
+                .as_array()
+                .ok_or("No conservation scores found")?;
+
+            // Calculate the average conservation score
+            let mut total_score = 0.0;
+            let mut count = 0;
+
+            for score_entry in scores {
+                if let Some(score) = score_entry["score"].as_f64() {
+                    total_score += score;
+                    count += 1;
+                }
+            }
+
+            if count > 0 {
+                exon.conservation_score = Some(total_score / count as f64);
+            } else {
+                exon.conservation_score = Some(0.0);
+            }
+        } else {
+            eprintln!(
+                "Failed to fetch conservation score for exon {}. HTTP Status: {}",
+                exon.id,
+                response.status()
+            );
+            exon.conservation_score = Some(0.0);
+        }
+        //
+        // // Optional: Add a short delay between requests to further mitigate rate limiting
+        // thread::sleep(Duration::from_millis(100));
+    }
+
+    Ok(())
+}
+
+/// Helper function to handle rate limiting and retries.
+fn make_request_with_retry(
+    client: &Client,
+    url: &str,
+    max_attempts: u32,
+) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
+    let mut attempts = 0;
+
+    loop {
+        let response = client
+            .get(url)
+            .header("Accept", "application/json")
+            .header(USER_AGENT, "YourAppName/1.0") // Replace with your application's name and version
+            .send()?;
+
+        if response.status().is_success() {
+            return Ok(response);
+        } else if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            attempts += 1;
+            if attempts >= max_attempts {
+                return Err(format!("Exceeded maximum retries for URL: {}", url).into());
+            }
+
+            // Check for the 'Retry-After' header to determine wait time
+            if let Some(retry_after) = response.headers().get("Retry-After") {
+                let wait_time = retry_after.to_str()?.parse::<u64>().unwrap_or(1);
+                eprintln!(
+                    "Rate limited. Waiting {} seconds before retrying...",
+                    wait_time
+                );
+                thread::sleep(Duration::from_secs(wait_time));
+            } else {
+                // Default wait time if 'Retry-After' is not provided
+                eprintln!("Rate limited. Waiting 1 second before retrying...");
+                thread::sleep(Duration::from_secs(1));
+            }
+        } else {
+            // For other HTTP errors, return an error
+            let status = response.status();
+            let error_text = response.text()?;
+            return Err(format!(
+                "Failed to fetch data from URL: {}. Status: {}. Error: {}",
+                url, status, error_text
+            )
+                .into());
+        }
+    }
+}
+
+
+pub fn determine_paralogous_exons(
+    exons: &mut [ExonDetail],
+    paralog_gene_ids: &[String],
+) -> Result<(), Box<dyn Error>> {
+    println!("Determining paralogous exons");
+
+    let client = Client::new();
+
+    // Fetch exon sequences for paralogous genes
+    let mut paralog_exon_sequences = Vec::new();
+
+    for gene_id in paralog_gene_ids {
+        let url = format!(
+            "https://rest.ensembl.org/lookup/id/{}?expand=1",
+            gene_id
         );
         let response = client
             .get(&url)
@@ -151,36 +286,103 @@ pub fn fetch_conservation_scores(exons: &mut [ExonDetail]) -> Result<(), Box<dyn
             .send()?;
 
         if response.status().is_success() {
-            let data: Value = response.json()?;
-            let elements = data.as_array().unwrap();
+            let gene_data: Value = response.json()?;
+            let transcripts_json = gene_data["Transcript"]
+                .as_array()
+                .ok_or("No transcripts found")?;
 
-            // For simplicity, we'll assign a conservation score based on the number of constrained elements
-            let conservation_score = elements.len() as f64;
-            exon.conservation_score = Some(conservation_score);
+            for t in transcripts_json {
+                let exons_json = t["Exon"]
+                    .as_array()
+                    .ok_or("No exons found for transcript")?;
+
+                for e in exons_json {
+                    if let Some(exon_id) = e["id"].as_str() {
+                        // Fetch exon sequence
+                        let seq_url = format!(
+                            "https://rest.ensembl.org/sequence/id/{}?type=cdna",
+                            exon_id
+                        );
+                        let seq_response = client
+                            .get(&seq_url)
+                            .header("Accept", "text/plain")
+                            .send()?;
+
+                        if seq_response.status().is_success() {
+                            let sequence = seq_response.text()?;
+                            paralog_exon_sequences.push((exon_id.to_string(), sequence));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Now compare each of your exons to the paralogous exon sequences
+    for exon in exons.iter_mut() {
+        // Fetch exon sequence
+        let seq_url = format!(
+            "https://rest.ensembl.org/sequence/id/{}?type=cdna",
+            exon.id
+        );
+        println!("{}",seq_url);
+        let seq_response = client
+            .get(&seq_url)
+            .header("Accept", "text/plain")
+            .send()?;
+
+        if seq_response.status().is_success() {
+            let exon_sequence = seq_response.text()?;
+
+            // Compare to each paralog exon sequence
+            for (_paralog_exon_id, paralog_sequence) in &paralog_exon_sequences {
+                let similarity = calculate_sequence_similarity(&exon_sequence, &paralog_sequence);
+
+                if similarity >= 0.8 {
+                    // Threshold of 80% similarity
+                    exon.is_paralogous = true;
+                    break;
+                }
+            }
         } else {
-            eprintln!(
-                "Failed to fetch conservation score for exon {}",
-                exon.id
-            );
-            exon.conservation_score = Some(0.0); // Default to 0.0 if data is unavailable
+            eprintln!("Failed to fetch sequence for exon {}", exon.id);
         }
     }
 
     Ok(())
 }
 
-/// Determine if exons are paralogous based on sequence similarity (simplified).
-pub fn determine_paralogous_exons(
-    exons: &mut [ExonDetail],
-    paralog_gene_ids: &[String],
-) -> Result<(), Box<dyn Error>> {
-    println!("Determining paralogous exons");
+fn calculate_sequence_similarity(seq1: &str, seq2: &str) -> f64 {
+    use bio::alignment::pairwise::Aligner;
+    use bio::alignment::AlignmentOperation;
 
-    // For simplicity, we'll mark all exons as non-paralogous
-    // Implement sequence alignment or use Ensembl's homology endpoints for a real implementation
-    for exon in exons.iter_mut() {
-        exon.is_paralogous = false;
+    // Define match and mismatch scores
+    let match_score = 1;
+    let mismatch_score = -1;
+    let gap_open = -5;
+    let gap_extend = -1;
+
+    // Create an aligner with specified scoring parameters
+    let mut aligner = Aligner::new(
+        gap_open,
+        gap_extend,
+        |a: u8, b: u8| if a == b { match_score } else { mismatch_score },
+    );
+
+    // Perform global alignment
+    let alignment = aligner.global(seq1.as_bytes(), seq2.as_bytes());
+
+    // Calculate sequence identity
+    let alignment_length = alignment.operations.len();
+    let mut matches = 0;
+
+    for op in alignment.operations {
+        if let AlignmentOperation::Match = op {
+            matches += 1;
+        }
     }
 
-    Ok(())
+    let identity = matches as f64 / alignment_length as f64;
+
+    identity
 }

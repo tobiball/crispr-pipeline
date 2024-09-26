@@ -51,6 +51,7 @@ impl GeneInfo {
                 eprintln!("Error fetching expression levels: {}", e);
             }
 
+
             // Fetch conservation scores for exons
             if let Err(e) = fetch_conservation_scores(&mut transcript.exons) {
                 eprintln!("Error fetching conservation scores: {}", e);
