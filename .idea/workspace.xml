@@ -8,37 +8,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Chopchop integration v1">
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/LICENSE" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-align-l" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-align-l-debug" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-align-s" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-align-s-debug" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-build" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-build-l" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-build-l-debug" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-build-s" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-build-s-debug" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-buildc" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-inspect" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-inspect-l" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-inspect-l-debug" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-inspect-s" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/bowtie/bowtie-inspect-s-debug" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/chopchop.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/featurization.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/hg38.2bit" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/hg38.fa" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/hg38.gene_table" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/primer3_core" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/refGene.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chopchop/twoBitToFa" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/gene_sequence.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/gene_sequence.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/protein_domains.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/protein_domains.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/snps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/snps.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,10 +31,11 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="new-branch" />
+        <entry key="$PROJECT_DIR$" value="main" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="HARD" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -243,7 +219,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="master" />
+                        <option value="main" />
                       </list>
                     </value>
                   </entry>
