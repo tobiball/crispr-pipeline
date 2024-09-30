@@ -159,110 +159,50 @@ pub fn fetch_conservation_scores(exons: &mut [ExonDetail]) -> Result<(), Box<dyn
     let client = Client::new();
 
     for exon in exons.iter_mut() {
-        // Construct the region identifier in the format species:chromosome:start-end
-        let region_id = format!(
-            "human:{}:{}-{}",
+        let url = format!(
+            "https://rest.ensembl.org/overlap/region/human/{}:{}-{}?feature=constrained",
             exon.seq_region_name, exon.start, exon.end
         );
-
-        let url = format!(
-            "https://rest.ensembl.org/info/conservation/{}",
-            region_id
-        );
-        println!("Requesting URL: {}", url);
-
-        // Make the request with retry logic to handle rate limiting
-        let response = make_request_with_retry(&client, &url, 5)?;
+        println!("{}", url);
+        let response = client
+            .get(&url)
+            .header("Accept", "application/json")
+            .send()?;
 
         if response.status().is_success() {
             let data: Value = response.json()?;
+            let elements = data.as_array().unwrap();
 
-            // The API returns a list of conservation scores for the region
-            let scores = data["conservation_scores"]
-                .as_array()
-                .ok_or("No conservation scores found")?;
+            // Calculate the total length of constrained elements overlapping the exon
+            let mut total_constrained_length = 0;
 
-            // Calculate the average conservation score
-            let mut total_score = 0.0;
-            let mut count = 0;
-
-            for score_entry in scores {
-                if let Some(score) = score_entry["score"].as_f64() {
-                    total_score += score;
-                    count += 1;
+            for element in elements {
+                if let Some(start) = element["start"].as_u64() {
+                    if let Some(end) = element["end"].as_u64() {
+                        // Calculate overlap between constrained element and exon
+                        let overlap_start = std::cmp::max(exon.start, start);
+                        let overlap_end = std::cmp::min(exon.end, end);
+                        if overlap_end >= overlap_start {
+                            total_constrained_length += overlap_end - overlap_start + 1;
+                        }
+                    }
                 }
             }
 
-            if count > 0 {
-                exon.conservation_score = Some(total_score / count as f64);
-            } else {
-                exon.conservation_score = Some(0.0);
-            }
+            let exon_length = exon.end - exon.start + 1;
+            // Calculate the proportion of the exon that is constrained
+            exon.conservation_score = Some(total_constrained_length as f64 / exon_length as f64);
         } else {
             eprintln!(
-                "Failed to fetch conservation score for exon {}. HTTP Status: {}",
-                exon.id,
-                response.status()
+                "Failed to fetch conservation score for exon {}",
+                exon.id
             );
             exon.conservation_score = Some(0.0);
         }
-        //
-        // // Optional: Add a short delay between requests to further mitigate rate limiting
-        // thread::sleep(Duration::from_millis(100));
     }
 
     Ok(())
 }
-
-/// Helper function to handle rate limiting and retries.
-fn make_request_with_retry(
-    client: &Client,
-    url: &str,
-    max_attempts: u32,
-) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
-    let mut attempts = 0;
-
-    loop {
-        let response = client
-            .get(url)
-            .header("Accept", "application/json")
-            .header(USER_AGENT, "YourAppName/1.0") // Replace with your application's name and version
-            .send()?;
-
-        if response.status().is_success() {
-            return Ok(response);
-        } else if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            attempts += 1;
-            if attempts >= max_attempts {
-                return Err(format!("Exceeded maximum retries for URL: {}", url).into());
-            }
-
-            // Check for the 'Retry-After' header to determine wait time
-            if let Some(retry_after) = response.headers().get("Retry-After") {
-                let wait_time = retry_after.to_str()?.parse::<u64>().unwrap_or(1);
-                eprintln!(
-                    "Rate limited. Waiting {} seconds before retrying...",
-                    wait_time
-                );
-                thread::sleep(Duration::from_secs(wait_time));
-            } else {
-                // Default wait time if 'Retry-After' is not provided
-                eprintln!("Rate limited. Waiting 1 second before retrying...");
-                thread::sleep(Duration::from_secs(1));
-            }
-        } else {
-            // For other HTTP errors, return an error
-            let status = response.status();
-            let error_text = response.text()?;
-            return Err(format!(
-                "Failed to fetch data from URL: {}. Status: {}. Error: {}",
-                url, status, error_text
-            )
-                .into());
-        }
-    }
-}
-
 
 pub fn determine_paralogous_exons(
     exons: &mut [ExonDetail],
@@ -330,7 +270,7 @@ pub fn determine_paralogous_exons(
             .get(&seq_url)
             .header("Accept", "text/plain")
             .send()?;
-
+        println!("{}", seq_response.status());
         if seq_response.status().is_success() {
             let exon_sequence = seq_response.text()?;
 
@@ -385,4 +325,53 @@ fn calculate_sequence_similarity(seq1: &str, seq2: &str) -> f64 {
     let identity = matches as f64 / alignment_length as f64;
 
     identity
+}
+
+/// Helper function to handle rate limiting and retries.
+fn make_request_with_retry(
+    client: &Client,
+    url: &str,
+    max_attempts: u32,
+) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
+    let mut attempts = 0;
+
+    loop {
+        let response = client
+            .get(url)
+            .header("Accept", "application/json")
+            .header(USER_AGENT, "YourAppName/1.0") // Replace with your application's name and version
+            .send()?;
+
+        if response.status().is_success() {
+            return Ok(response);
+        } else if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            attempts += 1;
+            if attempts >= max_attempts {
+                return Err(format!("Exceeded maximum retries for URL: {}", url).into());
+            }
+
+            // Check for the 'Retry-After' header to determine wait time
+            if let Some(retry_after) = response.headers().get("Retry-After") {
+                let wait_time = retry_after.to_str()?.parse::<u64>().unwrap_or(1);
+                eprintln!(
+                    "Rate limited. Waiting {} seconds before retrying...",
+                    wait_time
+                );
+                thread::sleep(Duration::from_secs(wait_time));
+            } else {
+                // Default wait time if 'Retry-After' is not provided
+                eprintln!("Rate limited. Waiting 1 second before retrying...");
+                thread::sleep(Duration::from_secs(1));
+            }
+        } else {
+            // For other HTTP errors, return an error
+            let status = response.status();
+            let error_text = response.text()?;
+            return Err(format!(
+                "Failed to fetch data from URL: {}. Status: {}. Error: {}",
+                url, status, error_text
+            )
+                .into());
+        }
+    }
 }
