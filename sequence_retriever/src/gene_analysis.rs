@@ -1,6 +1,5 @@
-// src/gene_analysis.rs
-
-use crate::exon_intron::{ExonDetail, TranscriptDetail, fetch_expression_levels, fetch_conservation_scores, determine_paralogous_exons};
+use crate::api_handler::APIHandler;
+use crate::exon_intron::{ExonDetail, TranscriptDetail, MissingReason};
 use crate::snps::Variation;
 use crate::regulatory_elements::RegulatoryFeature;
 use crate::protein_domains::ProteinFeature;
@@ -41,37 +40,31 @@ pub struct TargetRegion {
 
 impl GeneInfo {
     /// Prioritize target regions within the gene based on exon properties.
-    pub fn prioritize_regions(&mut self) -> Vec<TargetRegion> {
+    pub fn prioritize_regions(&mut self, ensembl_api: &APIHandler, gtex_api: &APIHandler) -> Vec<TargetRegion> {
         let mut regions = Vec::new();
 
         // Fetch additional data for exons
         for transcript in &mut self.transcripts {
             // Fetch expression levels for exons
-            if let Err(e) = fetch_expression_levels(&mut transcript.exons, &self.gene_symbol) {
+            if let Err(e) = crate::exon_intron::fetch_expression_levels(gtex_api, &mut transcript.exons, &self.gene_symbol) {
                 eprintln!("Error fetching expression levels: {}", e);
             }
 
-
             // Fetch conservation scores for exons
-            if let Err(e) = fetch_conservation_scores(&mut transcript.exons) {
+            if let Err(e) = crate::exon_intron::fetch_conservation_scores(ensembl_api, &mut transcript.exons) {
                 eprintln!("Error fetching conservation scores: {}", e);
             }
 
             // Determine paralogous exons
-            if let Err(e) = determine_paralogous_exons(&mut transcript.exons, &self.paralogs) {
+            if let Err(e) = crate::exon_intron::determine_paralogous_exons(ensembl_api, &mut transcript.exons, &self.paralogs) {
                 eprintln!("Error determining paralogous exons: {}", e);
             }
         }
 
         // Sort intervals by start position
-        let mut regulatory_elements = &mut self.regulatory_elements;
-        regulatory_elements.sort_by_key(|elem| elem.start);
-
-        let mut protein_features = &mut self.protein_features;
-        protein_features.sort_by_key(|feat| feat.start);
-
-        let mut snps = &mut self.snps;
-        snps.sort_by_key(|snp| snp.start);
+        self.regulatory_elements.sort_by_key(|elem| elem.start);
+        self.protein_features.sort_by_key(|feat| feat.start);
+        self.snps.sort_by_key(|snp| snp.start);
 
         // User-defined exon inclusion/exclusion sets
         let user_exclude_exons: HashSet<String> = HashSet::new();
@@ -113,36 +106,46 @@ impl GeneInfo {
                 let mut priority_score = BASE_PRIORITY;
 
                 // Adjust for expression level
-                if let Some(expression) = exon.expression_level {
-                    priority_score += EXPRESSION_WEIGHT * expression;
+                match exon.expression_level {
+                    Some(expression) => priority_score += EXPRESSION_WEIGHT * expression,
+                    None => match &exon.expression_missing_reason {
+                        Some(MissingReason::NotFetched) => eprintln!("Expression data not fetched for exon {}", exon.id),
+                        Some(MissingReason::NotFound) => eprintln!("No expression data found for exon {}", exon.id),
+                        Some(MissingReason::ApiError(e)) => eprintln!("API error fetching expression data for exon {}: {}", exon.id, e),
+                        None => eprintln!("Unknown reason for missing expression data for exon {}", exon.id),
+                    },
                 }
 
                 // Check for regulatory elements overlap
-                let overlaps_regulatory = check_overlap(&regulatory_elements, exon.start, exon.end);
+                let overlaps_regulatory = check_overlap(&self.regulatory_elements, exon.start, exon.end);
                 if overlaps_regulatory {
                     priority_score -= REGULATORY_OVERLAP_PENALTY;
                 }
 
                 // Get SNPs in exon and calculate SNP penalty
-                let snps_in_exon = get_overlapping_variations(&snps, exon.start, exon.end);
+                let snps_in_exon = get_overlapping_variations(&self.snps, exon.start, exon.end);
                 let snp_penalty: f64 = snps_in_exon.iter()
-                    .map(|snp| {
-                        snp.minor_allele_freq.unwrap_or(0.0) * SNP_PENALTY_FACTOR
-                    })
+                    .map(|snp| snp.minor_allele_freq.unwrap_or(0.0) * SNP_PENALTY_FACTOR)
                     .sum();
                 priority_score -= snp_penalty;
 
                 // Check if exon overlaps essential protein domain
                 let overlaps_essential_domain = check_overlap_with_features(
-                    &protein_features, exon.start, exon.end, |feature| feature.is_essential
+                    &self.protein_features, exon.start, exon.end, |feature| feature.is_essential
                 );
                 if overlaps_essential_domain {
                     priority_score += DOMAIN_BONUS;
                 }
 
                 // Adjust for conservation score
-                if let Some(conservation_score) = exon.conservation_score {
-                    priority_score += CONSERVATION_WEIGHT * conservation_score;
+                match exon.conservation_score {
+                    Some(conservation_score) => priority_score += CONSERVATION_WEIGHT * conservation_score,
+                    None => match &exon.conservation_missing_reason {
+                        Some(MissingReason::NotFetched) => eprintln!("Conservation score not fetched for exon {}", exon.id),
+                        Some(MissingReason::NotFound) => eprintln!("No conservation score found for exon {}", exon.id),
+                        Some(MissingReason::ApiError(e)) => eprintln!("API error fetching conservation score for exon {}: {}", exon.id, e),
+                        None => eprintln!("Unknown reason for missing conservation score for exon {}", exon.id),
+                    },
                 }
 
                 // Determine if exon is constitutive
@@ -155,8 +158,15 @@ impl GeneInfo {
                 }
 
                 // Penalize for paralogous regions
-                if exon.is_paralogous {
-                    priority_score -= PARALOG_PENALTY;
+                match exon.is_paralogous {
+                    Some(true) => priority_score -= PARALOG_PENALTY,
+                    Some(false) => {},
+                    None => match &exon.paralogous_missing_reason {
+                        Some(MissingReason::NotFetched) => eprintln!("Paralogous status not fetched for exon {}", exon.id),
+                        Some(MissingReason::NotFound) => eprintln!("No paralogous status found for exon {}", exon.id),
+                        Some(MissingReason::ApiError(e)) => eprintln!("API error fetching paralogous status for exon {}: {}", exon.id, e),
+                        None => eprintln!("Unknown reason for missing paralogous status for exon {}", exon.id),
+                    },
                 }
 
                 // Adjust for exon length

@@ -55,7 +55,7 @@ where
 
 /// Fetch SNPs in a given genomic region using Ensembl REST API.
 pub fn fetch_snps_in_region(
-    chromosome: &str,
+    chromosome: String,
     start: u64,
     end: u64,
 ) -> Result<Vec<Variation>, Box<dyn StdError>> {

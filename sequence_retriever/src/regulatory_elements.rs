@@ -13,7 +13,7 @@ pub struct RegulatoryFeature {
     pub feature_type: String,
 }
 
-pub fn fetch_regulatory_elements(chromosome: &str, start: u64, end: u64) -> Result<Vec<RegulatoryFeature>, Box<dyn Error>> {
+pub fn fetch_regulatory_elements(chromosome: String, start: u64, end: u64) -> Result<Vec<RegulatoryFeature>, Box<dyn Error>> {
     println!(
         "Fetching regulatory elements in region {}:{}-{}",
         chromosome, start, end

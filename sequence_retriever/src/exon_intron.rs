@@ -1,185 +1,122 @@
-// src/exon_intron.rs
-
-use reqwest::blocking::Client;
-use serde::Deserialize;
 use std::error::Error;
 use serde_json::Value;
-use reqwest::header::USER_AGENT;
-use std::thread;
-use std::time::Duration;
 
-#[derive(Deserialize, Debug)]
+use crate::api_handler::APIHandler;
+
+#[derive(Debug, Clone)]
+pub enum MissingReason {
+    NotFetched,
+    NotFound,
+    ApiError(String),
+}
+
+#[derive(Debug)]
 pub struct ExonDetail {
     pub id: String,
     pub start: u64,
     pub end: u64,
     pub strand: i8,
     pub exon_number: String,
-    pub seq_region_name: String, // Add this field
-    #[serde(default)]
+    pub seq_region_name: String,
     pub expression_level: Option<f64>,
-    #[serde(default)]
+    pub expression_missing_reason: Option<MissingReason>,
     pub conservation_score: Option<f64>,
-    #[serde(default)]
-    pub is_paralogous: bool,
+    pub conservation_missing_reason: Option<MissingReason>,
+    pub is_paralogous: Option<bool>,
+    pub paralogous_missing_reason: Option<MissingReason>,
 }
 
-
-
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 pub struct TranscriptDetail {
     pub id: String,
     pub is_canonical: Option<u8>,
     pub exons: Vec<ExonDetail>,
 }
 
-/// Fetch all transcripts for a given gene ID using Ensembl REST API.
-pub fn fetch_all_transcripts(gene_id: &str) -> Result<Vec<TranscriptDetail>, Box<dyn Error>> {
+pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<Vec<TranscriptDetail>, Box<dyn Error>> {
     println!("Fetching all transcripts for gene ID: {}", gene_id);
-    let url = format!(
-        "https://rest.ensembl.org/lookup/id/{}?expand=1",
-        gene_id
-    );
-    let client = Client::new();
-    let response = client
-        .get(&url)
-        .header("Accept", "application/json")
-        .send()?;
+    let endpoint = format!("/lookup/id/{}?expand=1", gene_id);
+    let gene_data: Value = api_handler.get(&endpoint)?;
 
-    if response.status().is_success() {
-        let gene_data: Value = response.json()?;
-        let transcripts_json = gene_data["Transcript"]
+    let transcripts_json = gene_data["Transcript"]
+        .as_array()
+        .ok_or("No transcripts found")?;
+
+    let mut transcripts = Vec::new();
+
+    for t in transcripts_json {
+        let exons_json = t["Exon"]
             .as_array()
-            .ok_or("No transcripts found")?;
+            .ok_or("No exons found for transcript")?;
 
-        let mut transcripts = Vec::new();
+        let exons: Vec<ExonDetail> = exons_json.iter().map(|e| ExonDetail {
+            id: e["id"].as_str().unwrap_or("").to_string(),
+            start: e["start"].as_u64().unwrap_or(0),
+            end: e["end"].as_u64().unwrap_or(0),
+            strand: e["strand"].as_i64().unwrap_or(0) as i8,
+            exon_number: e["exon_number"].as_str().unwrap_or("").to_string(),
+            seq_region_name: e["seq_region_name"].as_str().unwrap_or("").to_string(),
+            expression_level: None,
+            expression_missing_reason: Some(MissingReason::NotFetched),
+            conservation_score: None,
+            conservation_missing_reason: Some(MissingReason::NotFetched),
+            is_paralogous: None,
+            paralogous_missing_reason: Some(MissingReason::NotFetched),
+        }).collect();
 
-        for t in transcripts_json {
-            let exons_json = t["Exon"]
-                .as_array()
-                .ok_or("No exons found for transcript")?;
+        let transcript = TranscriptDetail {
+            id: t["id"].as_str().unwrap_or("").to_string(),
+            is_canonical: t["is_canonical"].as_u64().map(|v| v as u8),
+            exons,
+        };
 
-            let mut exons = Vec::new();
-            for e in exons_json {
-                let exon = ExonDetail {
-                    id: e["id"].as_str().unwrap_or("").to_string(),
-                    start: e["start"].as_u64().unwrap_or(0),
-                    end: e["end"].as_u64().unwrap_or(0),
-                    strand: e["strand"].as_i64().unwrap_or(0) as i8,
-                    exon_number: e["exon_number"].as_str().unwrap_or("").to_string(),
-                    seq_region_name: e["seq_region_name"].as_str().unwrap_or("").to_string(), // Add this line
-                    // Initialize additional fields
-                    expression_level: None,
-                    conservation_score: None,
-                    is_paralogous: false,
-                };
-                exons.push(exon);
-            }
-
-
-            let transcript = TranscriptDetail {
-                id: t["id"].as_str().unwrap_or("").to_string(),
-                is_canonical: t["is_canonical"].as_u64().map(|v| v as u8),
-                exons,
-            };
-
-            transcripts.push(transcript);
-        }
-
-        Ok(transcripts)
-    } else {
-        let status = response.status();
-        let error_text = response.text()?;
-        eprintln!("Error fetching transcripts: HTTP {}", status);
-        eprintln!("Error details: {}", error_text);
-        Err("Failed to fetch transcripts.".into())
+        transcripts.push(transcript);
     }
+
+    Ok(transcripts)
 }
 
-/// Fetch expression levels for exons using Expression Atlas API.
-pub fn fetch_expression_levels(exons: &mut [ExonDetail], gencode_id: &str) -> Result<(), Box<dyn Error>> {
+pub fn fetch_expression_levels(api_handler: &APIHandler, exons: &mut [ExonDetail], gencode_id: &str) -> Result<(), Box<dyn Error>> {
     println!("Fetching expression levels for gene ID: {}", gencode_id);
+    let endpoint = format!("/expression/medianExonExpression?gencodeId={}&datasetId=gtex_v8", gencode_id);
+    let data: Value = api_handler.get(&endpoint)?;
 
-    // Define the API endpoint and URL
-    let url = format!(
-        "https://gtexportal.org/api/v2/expression/medianExonExpression?gencodeId={}&datasetId=gtex_v8",
-        gencode_id
-    );
-
-    // Create a new HTTP client
-    let client = Client::new();
-    let response = client.get(&url).send()?;
-
-    // Handle successful response
-    if response.status().is_success() {
-        let data: Value = response.json()?;
-
-        // Assuming the API returns a field "data" with expression levels in an array
-        let expression_data = data["data"]
-            .as_array()
-            .ok_or("No expression data found")?;
-
-        // Iterate over the fetched exon data and match it with your exon list
-        for exon in exons.iter_mut() {
-            if let Some(exon_data) = expression_data.iter().find(|&expr| expr["exon_id"].as_str() == Some(&exon.id)) {
-                if let Some(expression_value) = exon_data["median"].as_f64() {
-                    exon.expression_level = Some(expression_value);
-                } else {
-                    exon.expression_level = Some(0.0);
-                }
-            } else {
-                exon.expression_level = Some(0.0);
-            }
-        }
-
-
-        Ok(())
-    } else {
-        // Handle HTTP errors
-        let status = response.status();
-        let error_text = response.text()?;
-        eprintln!("Error fetching expression levels: HTTP {}", status);
-        eprintln!("Error details: {}", error_text);
-
-        // Assign default values to exons in case of an error
-        for exon in exons.iter_mut() {
-            exon.expression_level = Some(0.0);  // Assign default value in case of error
-        }
-
-        Ok(())
-    }
-}
-
-
-
-/// Fetch conservation scores for exons using the Ensembl Conservation API.
-pub fn fetch_conservation_scores(exons: &mut [ExonDetail]) -> Result<(), Box<dyn Error>> {
-    println!("Fetching conservation scores for exons");
-
-    let client = Client::new();
+    let expression_data = data["data"]
+        .as_array()
+        .ok_or("No expression data found")?;
 
     for exon in exons.iter_mut() {
-        let url = format!(
-            "https://rest.ensembl.org/overlap/region/human/{}:{}-{}?feature=constrained",
+        if let Some(exon_data) = expression_data.iter().find(|&expr| expr["exon_id"].as_str() == Some(&exon.id)) {
+            exon.expression_level = exon_data["median"].as_f64();
+            if exon.expression_level.is_none() {
+                exon.expression_missing_reason = Some(MissingReason::NotFound);
+            } else {
+                exon.expression_missing_reason = None;
+            }
+        } else {
+            exon.expression_level = None;
+            exon.expression_missing_reason = Some(MissingReason::NotFound);
+        }
+    }
+
+    Ok(())
+}
+
+pub fn fetch_conservation_scores(api_handler: &APIHandler, exons: &mut [ExonDetail]) -> Result<(), Box<dyn Error>> {
+    println!("Fetching conservation scores for exons");
+
+    for exon in exons.iter_mut() {
+        let endpoint = format!(
+            "/overlap/region/human/{}:{}-{}?feature=constrained",
             exon.seq_region_name, exon.start, exon.end
         );
-        println!("{}", url);
-        let response = client
-            .get(&url)
-            .header("Accept", "application/json")
-            .send()?;
+        match api_handler.get(&endpoint) {
+            Ok(data) => {
+                let elements = data.as_array().unwrap();
+                let mut total_constrained_length = 0;
 
-        if response.status().is_success() {
-            let data: Value = response.json()?;
-            let elements = data.as_array().unwrap();
-
-            // Calculate the total length of constrained elements overlapping the exon
-            let mut total_constrained_length = 0;
-
-            for element in elements {
-                if let Some(start) = element["start"].as_u64() {
-                    if let Some(end) = element["end"].as_u64() {
-                        // Calculate overlap between constrained element and exon
+                for element in elements {
+                    if let (Some(start), Some(end)) = (element["start"].as_u64(), element["end"].as_u64()) {
                         let overlap_start = std::cmp::max(exon.start, start);
                         let overlap_end = std::cmp::min(exon.end, end);
                         if overlap_end >= overlap_start {
@@ -187,17 +124,15 @@ pub fn fetch_conservation_scores(exons: &mut [ExonDetail]) -> Result<(), Box<dyn
                         }
                     }
                 }
-            }
 
-            let exon_length = exon.end - exon.start + 1;
-            // Calculate the proportion of the exon that is constrained
-            exon.conservation_score = Some(total_constrained_length as f64 / exon_length as f64);
-        } else {
-            eprintln!(
-                "Failed to fetch conservation score for exon {}",
-                exon.id
-            );
-            exon.conservation_score = Some(0.0);
+                let exon_length = exon.end - exon.start + 1;
+                exon.conservation_score = Some(total_constrained_length as f64 / exon_length as f64);
+                exon.conservation_missing_reason = None;
+            },
+            Err(e) => {
+                exon.conservation_score = None;
+                exon.conservation_missing_reason = Some(MissingReason::ApiError(e.to_string()));
+            }
         }
     }
 
@@ -205,87 +140,52 @@ pub fn fetch_conservation_scores(exons: &mut [ExonDetail]) -> Result<(), Box<dyn
 }
 
 pub fn determine_paralogous_exons(
+    api_handler: &APIHandler,
     exons: &mut [ExonDetail],
     paralog_gene_ids: &[String],
 ) -> Result<(), Box<dyn Error>> {
     println!("Determining paralogous exons");
 
-    let client = Client::new();
-
-    // Fetch exon sequences for paralogous genes
     let mut paralog_exon_sequences = Vec::new();
 
     for gene_id in paralog_gene_ids {
-        let url = format!(
-            "https://rest.ensembl.org/lookup/id/{}?expand=1",
-            gene_id
-        );
-        let response = client
-            .get(&url)
-            .header("Accept", "application/json")
-            .send()?;
+        let endpoint = format!("/lookup/id/{}?expand=1", gene_id);
+        let gene_data: Value = api_handler.get(&endpoint)?;
 
-        if response.status().is_success() {
-            let gene_data: Value = response.json()?;
-            let transcripts_json = gene_data["Transcript"]
+        let transcripts_json = gene_data["Transcript"]
+            .as_array()
+            .ok_or("No transcripts found")?;
+
+        for t in transcripts_json {
+            let exons_json = t["Exon"]
                 .as_array()
-                .ok_or("No transcripts found")?;
+                .ok_or("No exons found for transcript")?;
 
-            for t in transcripts_json {
-                let exons_json = t["Exon"]
-                    .as_array()
-                    .ok_or("No exons found for transcript")?;
-
-                for e in exons_json {
-                    if let Some(exon_id) = e["id"].as_str() {
-                        // Fetch exon sequence
-                        let seq_url = format!(
-                            "https://rest.ensembl.org/sequence/id/{}?type=cdna",
-                            exon_id
-                        );
-                        let seq_response = client
-                            .get(&seq_url)
-                            .header("Accept", "text/plain")
-                            .send()?;
-
-                        if seq_response.status().is_success() {
-                            let sequence = seq_response.text()?;
-                            paralog_exon_sequences.push((exon_id.to_string(), sequence));
-                        }
+            for e in exons_json {
+                if let Some(exon_id) = e["id"].as_str() {
+                    let seq_endpoint = format!("/sequence/id/{}?type=cdna", exon_id);
+                    match api_handler.get_plain_text(&seq_endpoint) {
+                        Ok(sequence) => paralog_exon_sequences.push((exon_id.to_string(), sequence)),
+                        Err(e) => println!("Failed to fetch sequence for exon {}: {}", exon_id, e),
                     }
                 }
             }
         }
     }
 
-    // Now compare each of your exons to the paralogous exon sequences
     for exon in exons.iter_mut() {
-        // Fetch exon sequence
-        let seq_url = format!(
-            "https://rest.ensembl.org/sequence/id/{}?type=cdna",
-            exon.id
-        );
-        println!("{}",seq_url);
-        let seq_response = client
-            .get(&seq_url)
-            .header("Accept", "text/plain")
-            .send()?;
-        println!("{}", seq_response.status());
-        if seq_response.status().is_success() {
-            let exon_sequence = seq_response.text()?;
-
-            // Compare to each paralog exon sequence
-            for (_paralog_exon_id, paralog_sequence) in &paralog_exon_sequences {
-                let similarity = calculate_sequence_similarity(&exon_sequence, &paralog_sequence);
-
-                if similarity >= 0.8 {
-                    // Threshold of 80% similarity
-                    exon.is_paralogous = true;
-                    break;
-                }
+        let seq_endpoint = format!("/sequence/id/{}?type=cdna", exon.id);
+        match api_handler.get_plain_text(&seq_endpoint) {
+            Ok(exon_sequence) => {
+                exon.is_paralogous = Some(paralog_exon_sequences.iter().any(|(_, paralog_sequence)| {
+                    calculate_sequence_similarity(&exon_sequence, paralog_sequence) >= 0.8
+                }));
+                exon.paralogous_missing_reason = None;
+            },
+            Err(e) => {
+                exon.is_paralogous = None;
+                exon.paralogous_missing_reason = Some(MissingReason::ApiError(e.to_string()));
             }
-        } else {
-            eprintln!("Failed to fetch sequence for exon {}", exon.id);
         }
     }
 
@@ -325,53 +225,4 @@ fn calculate_sequence_similarity(seq1: &str, seq2: &str) -> f64 {
     let identity = matches as f64 / alignment_length as f64;
 
     identity
-}
-
-/// Helper function to handle rate limiting and retries.
-fn make_request_with_retry(
-    client: &Client,
-    url: &str,
-    max_attempts: u32,
-) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
-    let mut attempts = 0;
-
-    loop {
-        let response = client
-            .get(url)
-            .header("Accept", "application/json")
-            .header(USER_AGENT, "YourAppName/1.0") // Replace with your application's name and version
-            .send()?;
-
-        if response.status().is_success() {
-            return Ok(response);
-        } else if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            attempts += 1;
-            if attempts >= max_attempts {
-                return Err(format!("Exceeded maximum retries for URL: {}", url).into());
-            }
-
-            // Check for the 'Retry-After' header to determine wait time
-            if let Some(retry_after) = response.headers().get("Retry-After") {
-                let wait_time = retry_after.to_str()?.parse::<u64>().unwrap_or(1);
-                eprintln!(
-                    "Rate limited. Waiting {} seconds before retrying...",
-                    wait_time
-                );
-                thread::sleep(Duration::from_secs(wait_time));
-            } else {
-                // Default wait time if 'Retry-After' is not provided
-                eprintln!("Rate limited. Waiting 1 second before retrying...");
-                thread::sleep(Duration::from_secs(1));
-            }
-        } else {
-            // For other HTTP errors, return an error
-            let status = response.status();
-            let error_text = response.text()?;
-            return Err(format!(
-                "Failed to fetch data from URL: {}. Status: {}. Error: {}",
-                url, status, error_text
-            )
-                .into());
-        }
-    }
 }
