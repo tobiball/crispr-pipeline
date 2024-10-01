@@ -222,7 +222,7 @@ fn calculate_sequence_similarity(seq1: &str, seq2: &str) -> f64 {
         }
     }
 
-    let identity = matches as f64 / alignment_length as f64;
+    
 
-    identity
+    matches as f64 / alignment_length as f64
 }

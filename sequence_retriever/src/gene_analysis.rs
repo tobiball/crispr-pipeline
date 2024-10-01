@@ -1,5 +1,5 @@
 use crate::api_handler::APIHandler;
-use crate::exon_intron::{ExonDetail, TranscriptDetail, MissingReason};
+use crate::exon_intron::{TranscriptDetail, MissingReason};
 use crate::snps::Variation;
 use crate::regulatory_elements::RegulatoryFeature;
 use crate::protein_domains::ProteinFeature;

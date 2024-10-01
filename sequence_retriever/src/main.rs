@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let gene_id = fetch_gene_id(gene_symbol)?;
     // Fetch transcripts
-    let mut transcripts = fetch_all_transcripts(&ensembl_api, &gene_id)?;
+    let transcripts = fetch_all_transcripts(&ensembl_api, &gene_id)?;
     if transcripts.is_empty() {
         println!("No transcripts found for gene ID: {}", gene_id);
         return Ok(());

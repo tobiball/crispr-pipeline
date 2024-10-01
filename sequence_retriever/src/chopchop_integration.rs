@@ -58,7 +58,7 @@ pub fn download_and_format_gene_table() -> Result<(), Box<dyn Error>> {
     }
 
     // Create or overwrite the gene_table.csv file
-    let mut gene_table_file = File::create(&gene_table_path)?;
+    let mut gene_table_file = File::create(gene_table_path)?;
 
     // Write header
     writeln!(
