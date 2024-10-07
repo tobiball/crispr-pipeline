@@ -1,3 +1,5 @@
+// src/main.rs
+
 mod gene_analysis;
 mod exon_intron;
 mod protein_domains;
@@ -16,8 +18,10 @@ use crate::snps::fetch_snps_in_region;
 use crate::regulatory_elements::fetch_regulatory_elements;
 use crate::paralogs::fetch_paralogous_genes;
 use crate::gene_analysis::GeneInfo;
+use crate::chopchop_integration::{run_chopchop, parse_chopchop_results, ChopchopOptions};
+
 use std::error::Error;
-use crate::chopchop_integration::{run_chopchop, ChopchopOptions};
+use std::fs;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Initialize API handlers
@@ -27,7 +31,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Define gene symbol
     let gene_symbol = "OAT";
 
+    // Fetch gene ID and basic info
     let gene_id = fetch_gene_id(gene_symbol)?;
+    let gene_info_basic = fetch_gene_info(&gene_id)?;
+
+    // Ensure chromosome name includes 'chr' prefix
+    let chrom = if gene_info_basic.seq_region_name.starts_with("chr") {
+        gene_info_basic.seq_region_name.clone()
+    } else {
+        format!("chr{}", gene_info_basic.seq_region_name)
+    };
+
     // Fetch transcripts
     let transcripts = fetch_all_transcripts(&ensembl_api, &gene_id)?;
     if transcripts.is_empty() {
@@ -35,85 +49,78 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-
-
-    let gene_info = fetch_gene_info(&gene_id)?;
-
-    let chrom = if gene_info.seq_region_name.starts_with("chr") {
-        gene_info.seq_region_name.clone()
-    } else {
-        format!("chr{}", gene_info.seq_region_name)
-    };
+    // Fetch additional gene data
     let protein_features = fetch_protein_domains(&transcripts[0].id)?;
-    let paralogs = fetch_paralogous_genes(&gene_id, "human")?;
-    let snps = fetch_snps_in_region(chrom.clone(), gene_info.start, gene_info.end)?;
-    let regulatory_elements = fetch_regulatory_elements(chrom.clone(), gene_info.start, gene_info.end)?;
-
+    let snps = fetch_snps_in_region(chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
+    let regulatory_elements = fetch_regulatory_elements(chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
+    let paralogs = fetch_paralogous_genes(&gene_id, "human")?.into_iter().map(|p| p.target.id).collect();
 
     // Construct GeneInfo struct
-    let mut gene = GeneInfo {
+    let mut gene_info = GeneInfo {
         gene_id: gene_id.clone(),
         gene_symbol: gene_symbol.to_string(),
         chrom: chrom.clone(),
-        strand: gene_info.strand,
-        start: gene_info.start,
-        end: gene_info.end,
+        strand: gene_info_basic.strand,
+        start: gene_info_basic.start,
+        end: gene_info_basic.end,
         transcripts,
         protein_features,
         snps,
         regulatory_elements,
-        paralogs: paralogs.into_iter().map(|p| p.target.id).collect(),
+        paralogs,
     };
 
+    // Define the main output directory with absolute path
+    let main_output_dir = format!("/home/mrcrispr/crispr_pipeline/output/{}", gene_symbol);
 
+    // Ensure the main output directory exists
+    fs::create_dir_all(&main_output_dir)?;
 
+    // Define the dedicated CHOPCHOP output subdirectory
+    let chopchop_output_dir = format!("{}/chopchop_output", main_output_dir);
 
+    // Ensure the CHOPCHOP output directory exists
+    fs::create_dir_all(&chopchop_output_dir)?;
 
+    // Set up CHOPCHOP options
+    let chopchop_options = ChopchopOptions {
+        python_executable: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop_env/bin/python2.7".to_string(),
+        chopchop_script: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop.py".to_string(),
+        genome: "hg38".to_string(),
+        target_type: "GENE_NAME".to_string(), // Specify the target type as GENE_NAME
+        target: gene_symbol.to_string(),      // Use the gene symbol as the target
+        output_dir: chopchop_output_dir.clone(), // Use the dedicated CHOPCHOP output directory
+        pam_sequence: "NGG".to_string(),
+        guide_length: 20,
+        scoring_method: "DOENCH_2016".to_string(),
+        max_mismatches: 3,
+    };
 
+    println!("Running CHOPCHOP for target: {}", gene_symbol);
+    if let Err(e) = run_chopchop(&chopchop_options) {
+        eprintln!("Error running CHOPCHOP for target {}: {}", gene_symbol, e);
+        return Ok(());
+    }
 
-    // Analyze gene data to prioritize target regions
-    let target_regions = gene.prioritize_regions(&ensembl_api, &gtex_api);
+    // Parse CHOPCHOP results
+    let guides = parse_chopchop_results(&chopchop_output_dir)?;
 
-
-    println!("Top target regions based on analysis:");
-    for region in target_regions.iter().take(5) {
+    // Display the top guides
+    println!("Top guide RNAs:");
+    for guide in guides.iter().take(5) {
         println!(
-            "Transcript: {}, Exon: {}, Region: {}:{}-{}, Priority Score: {}",
-            region.transcript_id, region.exon_id, gene.chrom, region.start, region.end, region.priority_score
+            "Guide: {}, Chromosome: {}, Position: {}-{}, Strand: {}, Efficiency Score: {}, Specificity Score: {}",
+            guide.guide_sequence,
+            guide.chromosome,
+            guide.start,
+            guide.end,
+            guide.strand,
+            guide.efficiency_score,
+            guide.specificity_score
         );
     }
 
-    // Select top N regions for CHOPCHOP
-    let top_n = 3;
-    let selected_regions = target_regions.into_iter().take(top_n).collect::<Vec<_>>();
-
-    // Run CHOPCHOP for each selected region
-    for region in selected_regions {
-        let region_str = format!("{}:{}-{}", gene.chrom, region.start, region.end);
-        let output_dir = format!("{}_knockout_{}", gene_symbol, region.exon_id);
-
-        let chopchop_options = ChopchopOptions {
-            python_executable: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop_env/bin/python2.7".to_string(),
-            chopchop_script: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop.py".to_string(),
-            config_file: "crispr_pipeline/chopchop/config.json".to_string(),
-            genome: "hg38".to_string(),
-            target_region: region_str.clone(),
-            output_dir: output_dir.clone(),
-            pam_sequence: "NGG".to_string(),
-            guide_length: 20,
-            scoring_method: "DOENCH_2016".to_string(),
-            max_mismatches: 3,
-        };
-
-        println!("Running CHOPCHOP for region: {}", region_str);
-        if let Err(e) = run_chopchop(&chopchop_options) {
-            eprintln!("Error running CHOPCHOP for region {}: {}", region_str, e);
-            continue;
-        }
-
-        // Parse results (you'll need to implement parse_chopchop_results)
-        // let guides = parse_chopchop_results(&output_dir)?;
-    }
+    // Continue with additional analysis or processing as needed
 
     Ok(())
 }

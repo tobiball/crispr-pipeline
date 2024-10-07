@@ -3,8 +3,10 @@ use crate::exon_intron::{TranscriptDetail, MissingReason};
 use crate::snps::Variation;
 use crate::regulatory_elements::RegulatoryFeature;
 use crate::protein_domains::ProteinFeature;
+use crate::chopchop_integration::GuideRNA; // Import GuideRNA
 use std::collections::{HashMap, HashSet};
 use std::cmp::Ordering;
+
 
 const BASE_PRIORITY: f64 = 100.0;
 const SNP_PENALTY_FACTOR: f64 = 10.0;
@@ -39,24 +41,44 @@ pub struct TargetRegion {
 }
 
 impl GeneInfo {
-    /// Prioritize target regions within the gene based on exon properties.
     pub fn prioritize_regions(&mut self, ensembl_api: &APIHandler, gtex_api: &APIHandler) -> Vec<TargetRegion> {
         let mut regions = Vec::new();
 
         // Fetch additional data for exons
         for transcript in &mut self.transcripts {
-            // Fetch expression levels for exons
-            if let Err(e) = crate::exon_intron::fetch_expression_levels(gtex_api, &mut transcript.exons, &self.gene_id) {
-                eprintln!("Error fetching expression levels: {}", e);
-            }
+            for exon in &mut transcript.exons {
+                // Fetch expression level for this exon
+                match crate::exon_intron::fetch_expression_level_at_position(
+                    gtex_api,
+                    &self.gene_symbol,
+                    exon.seq_region_name.clone(),
+                    exon.start,
+                    exon.end,
+                ) {
+                    Ok(Some(expression)) => exon.expression_level = Some(expression),
+                    Ok(None) => exon.expression_missing_reason = Some(MissingReason::NotFound),
+                    Err(e) => exon.expression_missing_reason = Some(MissingReason::ApiError(e.to_string())),
+                }
 
-            // Fetch conservation scores for exons
-            if let Err(e) = crate::exon_intron::fetch_conservation_scores(ensembl_api, &mut transcript.exons) {
-                eprintln!("Error fetching conservation scores: {}", e);
+                // Fetch conservation score for this exon
+                match crate::exon_intron::fetch_conservation_score_at_position(
+                    ensembl_api,
+                    exon.seq_region_name.clone(),
+                    exon.start,
+                    exon.end,
+                ) {
+                    Ok(Some(score)) => exon.conservation_score = Some(score),
+                    Ok(None) => exon.conservation_missing_reason = Some(MissingReason::NotFound),
+                    Err(e) => exon.conservation_missing_reason = Some(MissingReason::ApiError(e.to_string())),
+                }
             }
 
             // Determine paralogous exons
-            if let Err(e) = crate::exon_intron::determine_paralogous_exons(ensembl_api, &mut transcript.exons, &self.paralogs) {
+            if let Err(e) = crate::exon_intron::determine_paralogous_exons(
+                ensembl_api,
+                &mut transcript.exons,
+                &self.paralogs,
+            ) {
                 eprintln!("Error determining paralogous exons: {}", e);
             }
         }

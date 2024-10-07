@@ -1,7 +1,7 @@
+// src/exon_intron.rs
+
 use std::error::Error;
 use serde_json::Value;
-use url::form_urlencoded;
-
 use crate::api_handler::APIHandler;
 
 #[derive(Debug, Clone)]
@@ -77,226 +77,98 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
     Ok(transcripts)
 }
 
-pub fn fetch_gencode_id(
-    api_handler: &APIHandler,
+pub fn fetch_expression_level_at_position(
+    gtex_api: &APIHandler,
     gene_symbol: &str,
-) -> Result<String, Box<dyn Error>> {
-    println!("Fetching gencodeId for gene symbol: {}", gene_symbol);
-
-    // Build the query parameters
-    let query = form_urlencoded::Serializer::new(String::new())
-        .append_pair("geneId", gene_symbol)
-        .append_pair("gencodeVersion", "v26")
-        .append_pair("genomeBuild", "GRCh38/hg38")
-        .finish();
-
-    // Construct the endpoint
-    let endpoint = format!("/reference/geneSearch?{}", query);
-
-    // Make the API call
-    let data: Value = api_handler.get(&endpoint)?;
-
-    // Parse the response to extract the gencodeId
-    let gene_data = data["data"]
-        .as_array()
-        .ok_or("No data found in gene search response")?;
-
-    if gene_data.is_empty() {
-        return Err(format!("No gene found for symbol: {}", gene_symbol).into());
-    }
-
-    // Assuming the first result is the correct gene
-    let gencode_id = gene_data[0]["gencodeId"]
-        .as_str()
-        .ok_or("gencodeId not found in gene data")?
-        .to_string();
-
-    Ok(gencode_id)
-}
-
-// https://gtexportal.org/api/v2/reference/geneSearch?geneId=OAT&gencodeVersion=v26&genomeBuild=GRCh38/hg38
-
-
-pub fn fetch_expression_levels(
-    api_handler: &APIHandler,
-    exons: &mut [ExonDetail],
-    gene_symbol: &str,
-) -> Result<(), Box<dyn Error>> {
+    chromosome: String,
+    start: u64,
+    end: u64,
+) -> Result<Option<f64>, Box<dyn Error>> {
     println!("Fetching expression levels for gene symbol: {}", gene_symbol);
 
-    // Step 1: Fetch the gencodeId
-    let gencode_id = fetch_gencode_id(api_handler, gene_symbol)?;
+    // Fetch median gene expression
+    let query = format!(
+        "/expression/medianGeneExpression?gencodeId={}&datasetId=gtex_v8",
+        gene_symbol
+    );
 
-    // Build the query parameters
-    let query = form_urlencoded::Serializer::new(String::new())
-        .append_pair("gencodeId", &gencode_id)
-        .append_pair("datasetId", "gtex_v8")
-        .finish();
-
-    // Construct the endpoint
-    let endpoint = format!("/expression/medianExonExpression?{}", query);
-
-    // Make the API call using your APIHandler
-    let data: Value = api_handler.get(&endpoint)?;
-
-    // Parse the response data
+    let data: Value = gtex_api.get(&query)?;
     let expression_data = data["data"]
         .as_array()
         .ok_or("No expression data found")?;
 
-    // Build a map from exon stable ID (without version) to median expression
-    use std::collections::HashMap;
-    let mut expression_map = HashMap::new();
-    for expr in expression_data {
-        if let (Some(exon_id), Some(median)) = (
-            expr["exonId"].as_str(),
-            expr["median"].as_f64(),
-        ) {
-            // Remove version number from exon_id if present
-            let exon_id_trimmed = exon_id.split('.').next().unwrap_or(exon_id);
-            expression_map.insert(exon_id_trimmed.to_string(), median);
+    if let Some(expr) = expression_data.first() {
+        if let Some(median) = expr["median"].as_f64() {
+            return Ok(Some(median));
         }
     }
 
-    // Update exons with expression levels
-    for exon in exons.iter_mut() {
-        // Remove version number from exon.id if present
-        let exon_id_trimmed = exon.id.split('.').next().unwrap_or(&exon.id);
-
-        if let Some(&median) = expression_map.get(exon_id_trimmed) {
-            exon.expression_level = Some(median);
-            exon.expression_missing_reason = None;
-        } else {
-            exon.expression_level = None;
-            exon.expression_missing_reason = Some(MissingReason::NotFound);
-        }
-    }
-
-    Ok(())
+    Ok(None)
 }
 
+pub fn fetch_conservation_score_at_position(
+    ensembl_api: &APIHandler,
+    chromosome: String,
+    start: u64,
+    end: u64,
+) -> Result<Option<f64>, Box<dyn Error>> {
+    println!("Fetching conservation scores for region {}:{}-{}", chromosome, start, end);
 
-pub fn fetch_conservation_scores(api_handler: &APIHandler, exons: &mut [ExonDetail]) -> Result<(), Box<dyn Error>> {
-    println!("Fetching conservation scores for exons");
-
-    for exon in exons.iter_mut() {
-        let endpoint = format!(
-            "/overlap/region/human/{}:{}-{}?feature=constrained",
-            exon.seq_region_name, exon.start, exon.end
-        );
-        match api_handler.get(&endpoint) {
-            Ok(data) => {
-                let elements = data.as_array().unwrap();
-                let mut total_constrained_length = 0;
-
-                for element in elements {
-                    if let (Some(start), Some(end)) = (element["start"].as_u64(), element["end"].as_u64()) {
-                        let overlap_start = std::cmp::max(exon.start, start);
-                        let overlap_end = std::cmp::min(exon.end, end);
-                        if overlap_end >= overlap_start {
-                            total_constrained_length += overlap_end - overlap_start + 1;
-                        }
-                    }
-                }
-
-                let exon_length = exon.end - exon.start + 1;
-                exon.conservation_score = Some(total_constrained_length as f64 / exon_length as f64);
-                exon.conservation_missing_reason = None;
-            },
-            Err(e) => {
-                exon.conservation_score = None;
-                exon.conservation_missing_reason = Some(MissingReason::ApiError(e.to_string()));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-pub fn determine_paralogous_exons(
-    api_handler: &APIHandler,
-    exons: &mut [ExonDetail],
-    paralog_gene_ids: &[String],
-) -> Result<(), Box<dyn Error>> {
-    println!("Determining paralogous exons");
-
-    let mut paralog_exon_sequences = Vec::new();
-
-    for gene_id in paralog_gene_ids {
-        let endpoint = format!("/lookup/id/{}?expand=1", gene_id);
-        let gene_data: Value = api_handler.get(&endpoint)?;
-
-        let transcripts_json = gene_data["Transcript"]
-            .as_array()
-            .ok_or("No transcripts found")?;
-
-        for t in transcripts_json {
-            let exons_json = t["Exon"]
-                .as_array()
-                .ok_or("No exons found for transcript")?;
-
-            for e in exons_json {
-                if let Some(exon_id) = e["id"].as_str() {
-                    let seq_endpoint = format!("/sequence/id/{}?type=cdna", exon_id);
-                    match api_handler.get_plain_text(&seq_endpoint) {
-                        Ok(sequence) => paralog_exon_sequences.push((exon_id.to_string(), sequence)),
-                        Err(e) => println!("Failed to fetch sequence for exon {}: {}", exon_id, e),
-                    }
-                }
-            }
-        }
-    }
-
-    for exon in exons.iter_mut() {
-        let seq_endpoint = format!("/sequence/id/{}?type=cdna", exon.id);
-        match api_handler.get_plain_text(&seq_endpoint) {
-            Ok(exon_sequence) => {
-                exon.is_paralogous = Some(paralog_exon_sequences.iter().any(|(_, paralog_sequence)| {
-                    calculate_sequence_similarity(&exon_sequence, paralog_sequence) >= 0.8
-                }));
-                exon.paralogous_missing_reason = None;
-            },
-            Err(e) => {
-                exon.is_paralogous = None;
-                exon.paralogous_missing_reason = Some(MissingReason::ApiError(e.to_string()));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn calculate_sequence_similarity(seq1: &str, seq2: &str) -> f64 {
-    use bio::alignment::pairwise::Aligner;
-    use bio::alignment::AlignmentOperation;
-
-    // Define match and mismatch scores
-    let match_score = 1;
-    let mismatch_score = -1;
-    let gap_open = -5;
-    let gap_extend = -1;
-
-    // Create an aligner with specified scoring parameters
-    let mut aligner = Aligner::new(
-        gap_open,
-        gap_extend,
-        |a: u8, b: u8| if a == b { match_score } else { mismatch_score },
+    let endpoint = format!(
+        "/overlap/region/human/{}:{}-{}?feature=constrained",
+        chromosome.trim_start_matches("chr"), start, end
     );
 
-    // Perform global alignment
-    let alignment = aligner.global(seq1.as_bytes(), seq2.as_bytes());
+    let data: Value = ensembl_api.get(&endpoint)?;
+    let elements = data.as_array().unwrap();
 
-    // Calculate sequence identity
-    let alignment_length = alignment.operations.len();
-    let mut matches = 0;
+    let mut total_constrained_length = 0;
 
-    for op in alignment.operations {
-        if let AlignmentOperation::Match = op {
-            matches += 1;
+    for element in elements {
+        if let (Some(start_elem), Some(end_elem)) = (element["start"].as_u64(), element["end"].as_u64()) {
+            let overlap_start = std::cmp::max(start, start_elem);
+            let overlap_end = std::cmp::min(end, end_elem);
+            if overlap_end >= overlap_start {
+                total_constrained_length += overlap_end - overlap_start + 1;
+            }
         }
     }
 
-    
+    let region_length = end - start + 1;
+    let conservation_score = total_constrained_length as f64 / region_length as f64;
 
-    matches as f64 / alignment_length as f64
+    Ok(Some(conservation_score))
+}
+
+
+pub fn determine_paralogous_exons(
+    ensembl_api: &APIHandler,
+    exons: &mut Vec<ExonDetail>,
+    paralog_gene_ids: &[String],
+) -> Result<(), Box<dyn Error>> {
+    // Fetch exons from paralogous genes
+    let mut paralog_exons = Vec::new();
+    for paralog_id in paralog_gene_ids {
+        let transcripts = crate::exon_intron::fetch_all_transcripts(ensembl_api, paralog_id)?;
+        for transcript in transcripts {
+            paralog_exons.extend(transcript.exons);
+        }
+    }
+
+    // Compare each exon with paralog exons
+    for exon in exons.iter_mut() {
+        for paralog_exon in &paralog_exons {
+            if exon.seq_region_name == paralog_exon.seq_region_name &&
+                exon.start == paralog_exon.start &&
+                exon.end == paralog_exon.end {
+                exon.is_paralogous = Some(true);
+                break;
+            }
+        }
+        if exon.is_paralogous.is_none() {
+            exon.is_paralogous = Some(false);
+        }
+    }
+
+    Ok(())
 }
