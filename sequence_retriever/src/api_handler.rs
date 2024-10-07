@@ -28,6 +28,7 @@ impl APIHandler {
 
     pub fn get(&self, endpoint: &str) -> Result<Value, Box<dyn Error>> {
         let url = format!("{}{}", self.base_url, endpoint);
+        println!("{}",url);
         self.make_request_with_retry(&url, 3)
     }
 

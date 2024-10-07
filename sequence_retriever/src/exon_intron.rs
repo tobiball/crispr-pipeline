@@ -1,5 +1,6 @@
 use std::error::Error;
 use serde_json::Value;
+use url::form_urlencoded;
 
 use crate::api_handler::APIHandler;
 
@@ -76,23 +77,95 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
     Ok(transcripts)
 }
 
-pub fn fetch_expression_levels(api_handler: &APIHandler, exons: &mut [ExonDetail], gencode_id: &str) -> Result<(), Box<dyn Error>> {
-    println!("Fetching expression levels for gene ID: {}", gencode_id);
-    let endpoint = format!("/expression/medianExonExpression?gencodeId={}&datasetId=gtex_v8", gencode_id);
+pub fn fetch_gencode_id(
+    api_handler: &APIHandler,
+    gene_symbol: &str,
+) -> Result<String, Box<dyn Error>> {
+    println!("Fetching gencodeId for gene symbol: {}", gene_symbol);
+
+    // Build the query parameters
+    let query = form_urlencoded::Serializer::new(String::new())
+        .append_pair("geneId", gene_symbol)
+        .append_pair("gencodeVersion", "v26")
+        .append_pair("genomeBuild", "GRCh38/hg38")
+        .finish();
+
+    // Construct the endpoint
+    let endpoint = format!("/reference/geneSearch?{}", query);
+
+    // Make the API call
     let data: Value = api_handler.get(&endpoint)?;
 
+    // Parse the response to extract the gencodeId
+    let gene_data = data["data"]
+        .as_array()
+        .ok_or("No data found in gene search response")?;
+
+    if gene_data.is_empty() {
+        return Err(format!("No gene found for symbol: {}", gene_symbol).into());
+    }
+
+    // Assuming the first result is the correct gene
+    let gencode_id = gene_data[0]["gencodeId"]
+        .as_str()
+        .ok_or("gencodeId not found in gene data")?
+        .to_string();
+
+    Ok(gencode_id)
+}
+
+// https://gtexportal.org/api/v2/reference/geneSearch?geneId=OAT&gencodeVersion=v26&genomeBuild=GRCh38/hg38
+
+
+pub fn fetch_expression_levels(
+    api_handler: &APIHandler,
+    exons: &mut [ExonDetail],
+    gene_symbol: &str,
+) -> Result<(), Box<dyn Error>> {
+    println!("Fetching expression levels for gene symbol: {}", gene_symbol);
+
+    // Step 1: Fetch the gencodeId
+    let gencode_id = fetch_gencode_id(api_handler, gene_symbol)?;
+
+    // Build the query parameters
+    let query = form_urlencoded::Serializer::new(String::new())
+        .append_pair("gencodeId", &gencode_id)
+        .append_pair("datasetId", "gtex_v8")
+        .finish();
+
+    // Construct the endpoint
+    let endpoint = format!("/expression/medianExonExpression?{}", query);
+
+    // Make the API call using your APIHandler
+    let data: Value = api_handler.get(&endpoint)?;
+
+    // Parse the response data
     let expression_data = data["data"]
         .as_array()
         .ok_or("No expression data found")?;
 
+    // Build a map from exon stable ID (without version) to median expression
+    use std::collections::HashMap;
+    let mut expression_map = HashMap::new();
+    for expr in expression_data {
+        if let (Some(exon_id), Some(median)) = (
+            expr["exonId"].as_str(),
+            expr["median"].as_f64(),
+        ) {
+            // Remove version number from exon_id if present
+            let exon_id_trimmed = exon_id.split('.').next().unwrap_or(exon_id);
+            expression_map.insert(exon_id_trimmed.to_string(), median);
+        }
+    }
+
+    // Update exons with expression levels
     for exon in exons.iter_mut() {
-        if let Some(exon_data) = expression_data.iter().find(|&expr| expr["exon_id"].as_str() == Some(&exon.id)) {
-            exon.expression_level = exon_data["median"].as_f64();
-            if exon.expression_level.is_none() {
-                exon.expression_missing_reason = Some(MissingReason::NotFound);
-            } else {
-                exon.expression_missing_reason = None;
-            }
+        // Remove version number from exon.id if present
+        let exon_id_trimmed = exon.id.split('.').next().unwrap_or(&exon.id);
+
+        if let Some(&median) = expression_map.get(exon_id_trimmed) {
+            exon.expression_level = Some(median);
+            exon.expression_missing_reason = None;
         } else {
             exon.expression_level = None;
             exon.expression_missing_reason = Some(MissingReason::NotFound);
@@ -101,6 +174,7 @@ pub fn fetch_expression_levels(api_handler: &APIHandler, exons: &mut [ExonDetail
 
     Ok(())
 }
+
 
 pub fn fetch_conservation_scores(api_handler: &APIHandler, exons: &mut [ExonDetail]) -> Result<(), Box<dyn Error>> {
     println!("Fetching conservation scores for exons");

@@ -46,7 +46,7 @@ impl GeneInfo {
         // Fetch additional data for exons
         for transcript in &mut self.transcripts {
             // Fetch expression levels for exons
-            if let Err(e) = crate::exon_intron::fetch_expression_levels(gtex_api, &mut transcript.exons, &self.gene_symbol) {
+            if let Err(e) = crate::exon_intron::fetch_expression_levels(gtex_api, &mut transcript.exons, &self.gene_id) {
                 eprintln!("Error fetching expression levels: {}", e);
             }
 

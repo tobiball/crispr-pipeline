@@ -3,6 +3,7 @@
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::error::Error;
+use log::debug;
 
 #[derive(Deserialize, Debug)]
 pub struct Xref {
@@ -35,6 +36,7 @@ pub fn fetch_gene_id(gene_symbol: &str) -> Result<String, Box<dyn Error>> {
 
     let xrefs: Vec<Xref> = response.json()?;
     for xref in xrefs {
+        println!("{:?}", xref);
         if xref.id_type == "gene" {
             println!("Found gene ID: {}", xref.id);
             return Ok(xref.id);
