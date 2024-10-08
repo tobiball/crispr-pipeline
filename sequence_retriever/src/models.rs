@@ -1,0 +1,26 @@
+use crate::exon_intron::ExonDetail;
+
+pub struct GuideRNA {
+    pub sequence: String,
+    pub chromosome: String,
+    pub start: u64,
+    pub end: u64,
+    pub strand: char,
+    pub gc_content: f64,
+    pub self_complementarity: u32,
+    pub mm0: u32,
+    pub mm1: u32,
+    pub mm2: u32,
+    pub mm3: u32,
+    pub chopchop_efficiency: f64,
+    pub expression_score: Option<f64>,
+    pub conservation_score: Option<f64>,
+    pub snp_score: Option<f64>,
+    pub regulatory_score: Option<f64>,
+    pub protein_domain_score: Option<f64>,
+    pub paralog_score: Option<f64>,
+    pub custom_biological_score: Option<f64>,
+    pub score_breakdown: Option<Vec<(String, f64)>>,
+    pub final_score: Option<f64>,
+    pub overlapping_exons: Vec<ExonDetail>
+}

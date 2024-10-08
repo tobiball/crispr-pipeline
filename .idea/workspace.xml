@@ -8,8 +8,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Clippy">
+      <change afterPath="$PROJECT_DIR$/sequence_retriever/src/models.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/api_handler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/api_handler.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" afterDir="false" />
@@ -64,7 +64,7 @@
     "Cargo.Run.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "api__handler",
+    "git-widget-placeholder": "score__whole__gene__results",
     "last_opened_file_path": "/home/mrcrispr/crispr_pipeline/chopchop",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -135,6 +135,7 @@
       <workItem from="1727772003248" duration="4104000" />
       <workItem from="1728293145021" duration="1410000" />
       <workItem from="1728295831884" duration="5452000" />
+      <workItem from="1728375764816" duration="17030000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />

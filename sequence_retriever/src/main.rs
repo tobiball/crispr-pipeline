@@ -9,10 +9,12 @@ mod paralogs;
 mod gene_sequence;
 mod chopchop_integration;
 mod api_handler;
+mod models;
 
+use crate::gene_analysis::calculate_final_score;
 use crate::api_handler::APIHandler;
 use crate::gene_sequence::{fetch_gene_id, fetch_gene_info};
-use crate::exon_intron::fetch_all_transcripts;
+use crate::exon_intron::{fetch_all_transcripts, ExonDetail};
 use crate::protein_domains::fetch_protein_domains;
 use crate::snps::fetch_snps_in_region;
 use crate::regulatory_elements::fetch_regulatory_elements;
@@ -49,6 +51,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    // Collect all exons from transcripts
+    let exons: Vec<ExonDetail> = transcripts.iter()
+        .flat_map(|t| t.exons.clone())
+        .collect();
+
     // Fetch additional gene data
     let protein_features = fetch_protein_domains(&transcripts[0].id)?;
     let snps = fetch_snps_in_region(chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
@@ -68,6 +75,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         snps,
         regulatory_elements,
         paralogs,
+        exons, // Use the collected exons here
     };
 
     // Define the main output directory with absolute path
@@ -102,25 +110,34 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    // Parse CHOPCHOP results
-    let guides = parse_chopchop_results(&chopchop_output_dir)?;
+    let mut guides = parse_chopchop_results(&chopchop_output_dir)?;
 
-    // Display the top guides
-    println!("Top guide RNAs:");
-    for guide in guides.iter().take(5) {
-        println!(
-            "Guide: {}, Chromosome: {}, Position: {}-{}, Strand: {}, Efficiency Score: {}, Specificity Score: {}",
-            guide.guide_sequence,
-            guide.chromosome,
-            guide.start,
-            guide.end,
-            guide.strand,
-            guide.efficiency_score,
-            guide.specificity_score
-        );
+    for guide in &mut guides {
+        gene_info.score_guide_rna(guide, &ensembl_api, &gtex_api)?;
+        calculate_final_score(guide);
     }
 
-    // Continue with additional analysis or processing as needed
+    // Sort guides by final score
+    guides.sort_by(|a, b| b.final_score.partial_cmp(&a.final_score).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Display top guides
+    println!("Top guide RNAs:");
+    for (index, guide) in guides.iter().take(20).enumerate() {
+        println!("Guide {}: {}", index + 1, guide.sequence);
+        println!("Position: {}:{}-{}, Strand: {}", guide.chromosome, guide.start, guide.end, guide.strand);
+        println!("GC Content: {:.2}%", guide.gc_content);
+        println!("Self-complementarity: {}", guide.self_complementarity);
+        println!("Mismatches: MM0={}, MM1={}, MM2={}, MM3={}", guide.mm0, guide.mm1, guide.mm2, guide.mm3);
+        println!("CHOPCHOP Efficiency: {:.2}", guide.chopchop_efficiency);
+        println!("Score Breakdown:");
+        if let Some(breakdown) = &guide.score_breakdown {
+            for (score_name, score_value) in breakdown {
+                println!("  {}: {:.2}", score_name, score_value);
+            }
+        }
+        println!("Final Combined Score: {:.2}", guide.final_score.unwrap());
+        println!();
+    }
 
     Ok(())
 }

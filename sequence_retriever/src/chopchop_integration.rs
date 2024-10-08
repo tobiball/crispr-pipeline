@@ -4,17 +4,7 @@ use std::error::Error;
 use std::process::Command;
 use std::fs::File;
 use std::io::{BufRead, Write};
-
-pub struct GuideRNA {
-    pub guide_sequence: String,
-    pub chromosome: String,
-    pub start: u64,
-    pub end: u64,
-    pub strand: char,
-    pub efficiency_score: f64,
-    pub specificity_score: f64,
-    // Additional fields as needed
-}
+use crate::models::GuideRNA;
 
 pub struct ChopchopOptions {
     pub python_executable: String,
@@ -95,7 +85,7 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<GuideRNA>, Box<dyn
     lines.next();
 
     for line in lines {
-        let line = line?;
+        let line = line?; // Handle the Result here
         if line.trim().is_empty() {
             continue;
         }
@@ -106,20 +96,31 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<GuideRNA>, Box<dyn
         }
 
         let guide = GuideRNA {
-            guide_sequence: fields[1].to_string(),
+            sequence: fields[1].to_string(),
             chromosome: fields[2].split(':').next().unwrap_or("").to_string(),
-            start: fields[2]
-                .split(':')
-                .nth(1)
-                .unwrap_or("0")
-                .parse::<u64>()
-                .unwrap_or(0),
-            end: 0, // End position is not provided in the output
+            start: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap_or(0),
+            end: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap_or(0) + fields[1].len() as u64,
             strand: fields[3].chars().next().unwrap_or('+'),
-            efficiency_score: fields[10].parse::<f64>().unwrap_or(0.0),
-            specificity_score: 0.0, // Specificity score is not provided in this output
+            gc_content: fields[4].parse::<f64>().unwrap_or(0.0),
+            self_complementarity: fields[5].parse::<u32>().unwrap_or(0),
+            mm0: fields[6].parse::<u32>().unwrap_or(0),
+            mm1: fields[7].parse::<u32>().unwrap_or(0),
+            mm2: fields[8].parse::<u32>().unwrap_or(0),
+            mm3: fields[9].parse::<u32>().unwrap_or(0),
+            chopchop_efficiency: fields[10].parse::<f64>().unwrap_or(0.0),
+            expression_score: None,
+            conservation_score: None,
+            snp_score: None,
+            regulatory_score: None,
+            protein_domain_score: None,
+            paralog_score: None,
+            custom_biological_score: None,
+            score_breakdown: None,
+            final_score: None,
+            overlapping_exons: vec![],
         };
         guides.push(guide);
     }
+
     Ok(guides)
 }

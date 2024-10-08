@@ -11,7 +11,7 @@ pub enum MissingReason {
     ApiError(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExonDetail {
     pub id: String,
     pub start: u64,
@@ -19,7 +19,7 @@ pub struct ExonDetail {
     pub strand: i8,
     pub exon_number: String,
     pub seq_region_name: String,
-    pub expression_level: Option<f64>,
+    pub expression_score: Option<f64>,
     pub expression_missing_reason: Option<MissingReason>,
     pub conservation_score: Option<f64>,
     pub conservation_missing_reason: Option<MissingReason>,
@@ -34,6 +34,18 @@ pub struct TranscriptDetail {
     pub exons: Vec<ExonDetail>,
 }
 
+/// Fetch the versioned gene ID from Ensembl API.
+pub fn fetch_versioned_gene_id(api_handler: &APIHandler, gene_id: &str) -> Result<String, Box<dyn Error>> {
+    println!("Fetching versioned gene ID for gene ID: {}", gene_id);
+    let endpoint = format!("/lookup/id/{}", gene_id);
+    let gene_data: Value = api_handler.get(&endpoint)?;
+    let version = gene_data["version"].as_u64()
+        .ok_or("Gene version not found")? -1;
+    let versioned_gene_id = format!("{}.{}", gene_id, version);
+    Ok(versioned_gene_id)
+}
+
+/// Fetch all transcripts for a given gene ID.
 pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<Vec<TranscriptDetail>, Box<dyn Error>> {
     println!("Fetching all transcripts for gene ID: {}", gene_id);
     let endpoint = format!("/lookup/id/{}?expand=1", gene_id);
@@ -57,7 +69,7 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
             strand: e["strand"].as_i64().unwrap_or(0) as i8,
             exon_number: e["exon_number"].as_str().unwrap_or("").to_string(),
             seq_region_name: e["seq_region_name"].as_str().unwrap_or("").to_string(),
-            expression_level: None,
+            expression_score: None,
             expression_missing_reason: Some(MissingReason::NotFetched),
             conservation_score: None,
             conservation_missing_reason: Some(MissingReason::NotFetched),
@@ -77,38 +89,55 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
     Ok(transcripts)
 }
 
-pub fn fetch_expression_level_at_position(
+/// Fetch expression score at a given position using GTEx API.
+pub fn fetch_expression_score_at_position(
     gtex_api: &APIHandler,
-    gene_symbol: &str,
-    chromosome: String,
+    gene_id: &str,
+    chromosome: &str,
     start: u64,
     end: u64,
+    ensembl_api: &APIHandler, // Added ensembl_api to get versioned gene ID
 ) -> Result<Option<f64>, Box<dyn Error>> {
-    println!("Fetching expression levels for gene symbol: {}", gene_symbol);
+    println!("Fetching expression levels for gene {} at {}:{}-{}", gene_id, chromosome, start, end);
 
-    // Fetch median gene expression
+    // Fetch versioned gene ID
+    let versioned_gene_id = fetch_versioned_gene_id(ensembl_api, gene_id)?;
+
+    // Construct the query for median exon expression
     let query = format!(
-        "/expression/medianGeneExpression?gencodeId={}&datasetId=gtex_v8",
-        gene_symbol
+        "/expression/medianExonExpression?gencodeId={}&datasetId=gtex_v8",
+        versioned_gene_id
     );
 
     let data: Value = gtex_api.get(&query)?;
-    let expression_data = data["data"]
+    let exon_expression_data = data["data"]
         .as_array()
-        .ok_or("No expression data found")?;
+        .ok_or("No exon expression data found")?;
 
-    if let Some(expr) = expression_data.first() {
-        if let Some(median) = expr["median"].as_f64() {
-            return Ok(Some(median));
+    // Find the exon that overlaps with our region of interest
+    let mut relevant_expression = None;
+
+    for exon in exon_expression_data {
+        println!("{:?}", exon);
+        let exon_start = exon["exonStart"].as_u64().unwrap();
+        let exon_end = exon["exonEnd"].as_u64().unwrap();
+
+        // Check if this exon overlaps with our region of interest
+        if exon_start <= end && exon_end >= start {
+            if let Some(median_tpm) = exon["median"].as_f64() {
+                relevant_expression = Some(median_tpm);
+                break;
+            }
         }
     }
 
-    Ok(None)
+    Ok(relevant_expression)
 }
 
+/// Fetch conservation score at a given position using Ensembl API.
 pub fn fetch_conservation_score_at_position(
     ensembl_api: &APIHandler,
-    chromosome: String,
+    chromosome: &str,
     start: u64,
     end: u64,
 ) -> Result<Option<f64>, Box<dyn Error>> {
@@ -135,12 +164,16 @@ pub fn fetch_conservation_score_at_position(
     }
 
     let region_length = end - start + 1;
-    let conservation_score = total_constrained_length as f64 / region_length as f64;
+    let conservation_score = if region_length > 0 {
+        total_constrained_length as f64 / region_length as f64
+    } else {
+        0.0
+    };
 
     Ok(Some(conservation_score))
 }
 
-
+/// Determine which exons are paralogous by comparing with paralogous genes.
 pub fn determine_paralogous_exons(
     ensembl_api: &APIHandler,
     exons: &mut Vec<ExonDetail>,
