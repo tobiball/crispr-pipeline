@@ -3,7 +3,6 @@
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::error::Error;
-use log::debug;
 
 #[derive(Deserialize, Debug)]
 pub struct Xref {

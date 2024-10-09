@@ -62,8 +62,9 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
             .as_array()
             .ok_or("No exons found for transcript")?;
 
+        // Assuming you already have this in your code
         let exons: Vec<ExonDetail> = exons_json.iter().map(|e| ExonDetail {
-            id: e["id"].as_str().unwrap_or("").to_string(),
+            id: e["id"].as_str().unwrap_or("").to_string(), // Ensembl exon ID
             start: e["start"].as_u64().unwrap_or(0),
             end: e["end"].as_u64().unwrap_or(0),
             strand: e["strand"].as_i64().unwrap_or(0) as i8,
@@ -77,6 +78,7 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
             paralogous_missing_reason: Some(MissingReason::NotFetched),
         }).collect();
 
+
         let transcript = TranscriptDetail {
             id: t["id"].as_str().unwrap_or("").to_string(),
             is_canonical: t["is_canonical"].as_u64().map(|v| v as u8),
@@ -89,50 +91,65 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
     Ok(transcripts)
 }
 
-/// Fetch expression score at a given position using GTEx API.
 pub fn fetch_expression_score_at_position(
     gtex_api: &APIHandler,
     gene_id: &str,
     chromosome: &str,
     start: u64,
     end: u64,
-    ensembl_api: &APIHandler, // Added ensembl_api to get versioned gene ID
+    ensembl_api: &APIHandler,
+    exons: &[ExonDetail],
 ) -> Result<Option<f64>, Box<dyn Error>> {
-    println!("Fetching expression levels for gene {} at {}:{}-{}", gene_id, chromosome, start, end);
-
-    // Fetch versioned gene ID
     let versioned_gene_id = fetch_versioned_gene_id(ensembl_api, gene_id)?;
 
-    // Construct the query for median exon expression
     let query = format!(
         "/expression/medianExonExpression?gencodeId={}&datasetId=gtex_v8",
         versioned_gene_id
     );
 
     let data: Value = gtex_api.get(&query)?;
+
     let exon_expression_data = data["data"]
         .as_array()
-        .ok_or("No exon expression data found")?;
+        .ok_or_else(|| Box::<dyn Error>::from("No exon expression data found in API response"))?;
 
-    // Find the exon that overlaps with our region of interest
+    if exon_expression_data.is_empty() {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("No exon expression data available for gene ID: {}", versioned_gene_id)
+        )));
+    }
+
+    let mut sorted_exons = exons.to_vec();
+    sorted_exons.sort_by_key(|e| e.start);
+
     let mut relevant_expression = None;
 
-    for exon in exon_expression_data {
-        println!("{:?}", exon);
-        let exon_start = exon["exonStart"].as_u64().unwrap();
-        let exon_end = exon["exonEnd"].as_u64().unwrap();
+    for (i, exon) in exon_expression_data.iter().enumerate() {
+        if i < sorted_exons.len() {
+            let ensembl_exon = &sorted_exons[i];
+            if ensembl_exon.start <= end && ensembl_exon.end >= start {
+                let median_tpm = exon["median"].as_f64()
+                    .ok_or_else(|| Box::<dyn Error>::from("Failed to extract median TPM"))?;
 
-        // Check if this exon overlaps with our region of interest
-        if exon_start <= end && exon_end >= start {
-            if let Some(median_tpm) = exon["median"].as_f64() {
                 relevant_expression = Some(median_tpm);
                 break;
             }
+        } else {
+            break;
         }
+    }
+
+    if relevant_expression.is_none() {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("No exon expression data found for region {}:{}-{}", chromosome, start, end)
+        )));
     }
 
     Ok(relevant_expression)
 }
+
 
 /// Fetch conservation score at a given position using Ensembl API.
 pub fn fetch_conservation_score_at_position(
@@ -167,7 +184,7 @@ pub fn fetch_conservation_score_at_position(
     let conservation_score = if region_length > 0 {
         total_constrained_length as f64 / region_length as f64
     } else {
-        0.0
+        panic!("missing conservation scores for region {}", chromosome);
     };
 
     Ok(Some(conservation_score))

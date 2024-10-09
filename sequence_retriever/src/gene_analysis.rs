@@ -1,15 +1,13 @@
-// src/gene_info.rs
+// src/gene_analysis.rs
 
 use std::error::Error;
 use crate::api_handler::APIHandler;
-use crate::exon_intron::{TranscriptDetail, MissingReason, ExonDetail, fetch_expression_score_at_position, fetch_conservation_score_at_position};
+use crate::exon_intron::{TranscriptDetail, ExonDetail, fetch_expression_score_at_position, fetch_conservation_score_at_position};
 use crate::snps::Variation;
 use crate::regulatory_elements::RegulatoryFeature;
 use crate::protein_domains::ProteinFeature;
 use crate::models::GuideRNA;
-use std::cmp::Ordering;
 use crate::gene_sequence::fetch_gene_sequence;
-use serde_json::Value;
 
 pub struct GeneInfo {
     pub gene_id: String,
@@ -42,108 +40,108 @@ impl GeneInfo {
 
     /// Score the guide RNA based on various biological factors.
     pub fn score_guide_rna(&self, guide: &mut GuideRNA, ensembl_api: &APIHandler, gtex_api: &APIHandler) -> Result<(), Box<dyn Error>> {
-        const BASE_SCORE: f64 = 100.0;
-        const SELF_COMPLEMENTARITY_PENALTY: f64 = 2.0;
-        const MISMATCH_PENALTY: f64 = 1.0;
-        const EXPRESSION_WEIGHT: f64 = 0.2;
-        const CONSERVATION_WEIGHT: f64 = 0.2;
-        const SNP_PENALTY: f64 = 2.0;
-        const REGULATORY_PENALTY: f64 = 1.0;
-        const PROTEIN_DOMAIN_PENALTY: f64 = 3.0;
-        const PARALOG_PENALTY: f64 = 3.0;
+        // Define weights
+        const OFF_TARGET_WEIGHT: f64 = 0.25;
+        const SNP_WEIGHT: f64 = 0.15;
+        const PARALOG_WEIGHT: f64 = 0.15;
+        const EXPRESSION_WEIGHT: f64 = 0.15;
+        const CONSERVATION_WEIGHT: f64 = 0.15;
+        const SELF_COMP_WEIGHT: f64 = 0.05;
+        const PROTEIN_DOMAIN_WEIGHT: f64 = 0.1;
 
-        let mut score = BASE_SCORE;
-        let mut score_breakdown = vec![("Base Score".to_string(), BASE_SCORE)];
+        // Define penalties
+        const P0: f64 = 100.0; // MM0 penalty
+        const P1: f64 = 10.0;  // MM1 penalty
+        const P2: f64 = 5.0;   // MM2 penalty
+        const P3: f64 = 2.0;   // MM3 penalty
 
-        // Self-complementarity penalty
-        let self_comp_penalty = guide.self_complementarity as f64 * SELF_COMPLEMENTARITY_PENALTY;
-        score -= self_comp_penalty;
-        score_breakdown.push(("Self-complementarity Penalty".to_string(), -self_comp_penalty));
+        const PENALTY_PER_SNP: f64 = 20.0;
+        const PENALTY_PER_PARALOG: f64 = 100.0;
+        const PENALTY_PER_SELF_COMP: f64 = 5.0;
+        const PENALTY_PER_PROTEIN_DOMAIN: f64 = 20.0;
 
-        // Mismatch penalty
-        let mismatch_penalty = (guide.mm1 + 2 * guide.mm2 + 3 * guide.mm3) as f64 * MISMATCH_PENALTY;
-        score -= mismatch_penalty;
-        score_breakdown.push(("Mismatch Penalty".to_string(), -mismatch_penalty));
+        let mut score_breakdown = Vec::new();
 
-        // Map exons to guide RNA
-        let overlapping_exons = self.map_exons_to_guides(guide);
-        guide.overlapping_exons = overlapping_exons.clone();
+        // Off-Target Score
+        let off_target_penalty = guide.mm0 as f64 * P0 + guide.mm1 as f64 * P1 + guide.mm2 as f64 * P2 + guide.mm3 as f64 * P3;
+        let off_target_score = (100.0 - off_target_penalty).max(0.0);
+        score_breakdown.push(("Off-Target Score".to_string(), off_target_score));
 
-        // Expression score
+        // SNP Score
+        let overlapping_snps = self.snps.iter()
+            .filter(|snp| snp.start <= guide.end && snp.end >= guide.start)
+            .count();
+        let snp_penalty = overlapping_snps as f64 * PENALTY_PER_SNP;
+        let snp_score = (100.0 - snp_penalty).max(0.0);
+        score_breakdown.push(("SNP Score".to_string(), snp_score));
+
+        // Paralog Score
+        let paralog_binding_score = self.check_paralog_binding(guide, ensembl_api)?;
+        let paralog_penalty = paralog_binding_score * 100.0;
+        let paralog_score = (100.0 - paralog_penalty).max(0.0);
+        score_breakdown.push(("Paralog Score".to_string(), paralog_score));
+
+        // Expression Score
         let expression_score = fetch_expression_score_at_position(
             gtex_api,
             &self.gene_id,
             &guide.chromosome,
             guide.start,
             guide.end,
-            ensembl_api, // Added ensembl_api
+            ensembl_api,
+            &self.exons,
         )?;
-
-        if let Some(exp) = expression_score {
-            let expression_contribution = exp * EXPRESSION_WEIGHT;
-            score += expression_contribution;
-            guide.expression_score = Some(exp);
-            score_breakdown.push(("Exon Expression Score".to_string(), expression_contribution));
+        let expression_score = if let Some(exp) = expression_score {
+            (exp * 100.0).min(100.0)
         } else {
-            println!("No exon expression data available for this region");
-        }
+            0.0
+        };
+        score_breakdown.push(("Expression Score".to_string(), expression_score));
 
-        // Conservation score
+        // Conservation Score
         let conservation = fetch_conservation_score_at_position(
             ensembl_api,
             &self.chrom,
             guide.start,
             guide.end,
         )?;
-        if let Some(cons) = conservation {
-            let cons_score = cons * 100.0 * CONSERVATION_WEIGHT;
-            score += cons_score;
-            guide.conservation_score = Some(cons);
-            score_breakdown.push(("Conservation Score".to_string(), cons_score));
-        }
+        let conservation_score = if let Some(cons) = conservation {
+            (cons * 100.0).min(100.0)
+        } else {
+            0.0
+        };
+        score_breakdown.push(("Conservation Score".to_string(), conservation_score));
 
-        // SNP penalty
-        let overlapping_snps = self.snps.iter()
-            .filter(|snp| snp.start <= guide.end && snp.end >= guide.start)
-            .count();
-        let snp_penalty = overlapping_snps as f64 * SNP_PENALTY;
-        score -= snp_penalty;
-        guide.snp_score = Some(-snp_penalty);
-        score_breakdown.push(("SNP Penalty".to_string(), -snp_penalty));
+        // Self-Complementarity Score
+        let self_comp_penalty = guide.self_complementarity as f64 * PENALTY_PER_SELF_COMP;
+        let self_comp_score = (100.0 - self_comp_penalty).max(0.0);
+        score_breakdown.push(("Self-Complementarity Score".to_string(), self_comp_score));
 
-        // Regulatory elements penalty
-        let overlapping_regulatory = self.regulatory_elements.iter()
-            .filter(|reg| reg.start <= guide.end && reg.end >= guide.start)
-            .count();
-        let reg_penalty = overlapping_regulatory as f64 * REGULATORY_PENALTY;
-        score -= reg_penalty;
-        guide.regulatory_score = Some(-reg_penalty);
-        score_breakdown.push(("Regulatory Penalty".to_string(), -reg_penalty));
-
-        // Protein domain penalty
+        // Protein Domain Score
         let overlapping_domains = self.protein_features.iter()
             .filter(|domain| domain.start <= guide.end && domain.end >= guide.start && domain.is_essential)
             .count();
-        let domain_penalty = overlapping_domains as f64 * PROTEIN_DOMAIN_PENALTY;
-        score -= domain_penalty;
-        guide.protein_domain_score = Some(-domain_penalty);
-        score_breakdown.push(("Protein Domain Penalty".to_string(), -domain_penalty));
+        let protein_domain_penalty = overlapping_domains as f64 * PENALTY_PER_PROTEIN_DOMAIN;
+        let protein_domain_score = (100.0 - protein_domain_penalty).max(0.0);
+        score_breakdown.push(("Protein Domain Score".to_string(), protein_domain_score));
 
-        // Paralog penalty
-        let paralog_score = self.check_paralog_binding(guide, ensembl_api)?;
-        let paralog_penalty = paralog_score * PARALOG_PENALTY;
-        score -= paralog_penalty;
-        guide.paralog_score = Some(-paralog_penalty);
-        score_breakdown.push(("Paralog Penalty".to_string(), -paralog_penalty));
+        // Final Biological Score
+        let final_biological_score = OFF_TARGET_WEIGHT * off_target_score +
+            SNP_WEIGHT * snp_score +
+            PARALOG_WEIGHT * paralog_score +
+            EXPRESSION_WEIGHT * expression_score +
+            CONSERVATION_WEIGHT * conservation_score +
+            SELF_COMP_WEIGHT * self_comp_score +
+            PROTEIN_DOMAIN_WEIGHT * protein_domain_score;
 
-        // Normalize score to be between 0 and 100
-        guide.custom_biological_score = Some(score.max(0.0).min(100.0));
-        score_breakdown.push(("Final Biological Score".to_string(), guide.custom_biological_score.unwrap()));
+        guide.custom_biological_score = Some(final_biological_score);
 
+        // Save the breakdown
         guide.score_breakdown = Some(score_breakdown);
 
         Ok(())
     }
+
 
     /// Check if the guide RNA binds to any paralogous gene sequences.
     fn check_paralog_binding(&self, guide: &GuideRNA, ensembl_api: &APIHandler) -> Result<f64, Box<dyn Error>> {

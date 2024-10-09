@@ -122,7 +122,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Display top guides
     println!("Top guide RNAs:");
-    for (index, guide) in guides.iter().take(20).enumerate() {
+    for (index, guide) in guides.iter().take(3).enumerate() {
         println!("Guide {}: {}", index + 1, guide.sequence);
         println!("Position: {}:{}-{}, Strand: {}", guide.chromosome, guide.start, guide.end, guide.strand);
         println!("GC Content: {:.2}%", guide.gc_content);
