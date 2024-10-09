@@ -21,23 +21,10 @@ pub struct GeneInfo {
     pub snps: Vec<Variation>,
     pub regulatory_elements: Vec<RegulatoryFeature>,
     pub paralogs: Vec<String>,
-    pub exons: Vec<ExonDetail>, // Added exons field
+    pub exons: Vec<ExonDetail>,
 }
 
 impl GeneInfo {
-    /// Map exons to the guide RNA positions.
-    pub fn map_exons_to_guides(&self, guide: &GuideRNA) -> Vec<ExonDetail> {
-        // Find exons that overlap with the guide RNA
-        self.exons.iter()
-            .filter(|exon| {
-                exon.seq_region_name == guide.chromosome &&
-                    exon.start <= guide.end &&
-                    exon.end >= guide.start
-            })
-            .cloned()
-            .collect()
-    }
-
     /// Score the guide RNA based on various biological factors.
     pub fn score_guide_rna(&self, guide: &mut GuideRNA, ensembl_api: &APIHandler, gtex_api: &APIHandler) -> Result<(), Box<dyn Error>> {
         // Define weights
@@ -68,18 +55,25 @@ impl GeneInfo {
         score_breakdown.push(("Off-Target Score".to_string(), off_target_score));
 
         // SNP Score
-        let overlapping_snps = self.snps.iter()
+        let overlapping_snps: Vec<Variation> = self.snps.iter()
             .filter(|snp| snp.start <= guide.end && snp.end >= guide.start)
-            .count();
-        let snp_penalty = overlapping_snps as f64 * PENALTY_PER_SNP;
+            .cloned()
+            .collect();
+        let snp_penalty = overlapping_snps.len() as f64 * PENALTY_PER_SNP;
         let snp_score = (100.0 - snp_penalty).max(0.0);
         score_breakdown.push(("SNP Score".to_string(), snp_score));
 
+        // Store the overlapping SNPs in the guide
+        guide.overlapping_snps = overlapping_snps;
+
         // Paralog Score
-        let paralog_binding_score = self.check_paralog_binding(guide, ensembl_api)?;
+        let (paralog_binding_score, binding_paralogs) = self.check_paralog_binding(guide, ensembl_api)?;
         let paralog_penalty = paralog_binding_score * 100.0;
         let paralog_score = (100.0 - paralog_penalty).max(0.0);
         score_breakdown.push(("Paralog Score".to_string(), paralog_score));
+
+        // Store the binding paralogs in the guide
+        guide.binding_paralogs = binding_paralogs;
 
         // Expression Score
         let expression_score = fetch_expression_score_at_position(
@@ -92,9 +86,10 @@ impl GeneInfo {
             &self.exons,
         )?;
         let expression_score = if let Some(exp) = expression_score {
+            guide.expression_score = Some(exp); // Store the expression level
             (exp * 100.0).min(100.0)
         } else {
-            0.0
+            panic!("No expression")
         };
         score_breakdown.push(("Expression Score".to_string(), expression_score));
 
@@ -106,9 +101,10 @@ impl GeneInfo {
             guide.end,
         )?;
         let conservation_score = if let Some(cons) = conservation {
+            guide.conservation_score = Some(cons); // Store the conservation score
             (cons * 100.0).min(100.0)
         } else {
-            0.0
+            panic!("No conservation")
         };
         score_breakdown.push(("Conservation Score".to_string(), conservation_score));
 
@@ -118,12 +114,17 @@ impl GeneInfo {
         score_breakdown.push(("Self-Complementarity Score".to_string(), self_comp_score));
 
         // Protein Domain Score
-        let overlapping_domains = self.protein_features.iter()
+        let overlapping_domains: Vec<ProteinFeature> = self.protein_features.iter()
             .filter(|domain| domain.start <= guide.end && domain.end >= guide.start && domain.is_essential)
-            .count();
-        let protein_domain_penalty = overlapping_domains as f64 * PENALTY_PER_PROTEIN_DOMAIN;
+            .cloned()
+            .collect();
+        let overlapping_domains_count = overlapping_domains.len();
+        let protein_domain_penalty = overlapping_domains_count as f64 * PENALTY_PER_PROTEIN_DOMAIN;
         let protein_domain_score = (100.0 - protein_domain_penalty).max(0.0);
         score_breakdown.push(("Protein Domain Score".to_string(), protein_domain_score));
+
+        // Store the overlapping protein domains in the guide
+        guide.overlapping_protein_domains = overlapping_domains;
 
         // Final Biological Score
         let final_biological_score = OFF_TARGET_WEIGHT * off_target_score +
@@ -142,22 +143,23 @@ impl GeneInfo {
         Ok(())
     }
 
-
     /// Check if the guide RNA binds to any paralogous gene sequences.
-    fn check_paralog_binding(&self, guide: &GuideRNA, ensembl_api: &APIHandler) -> Result<f64, Box<dyn Error>> {
+    fn check_paralog_binding(&self, guide: &GuideRNA, ensembl_api: &APIHandler) -> Result<(f64, Vec<String>), Box<dyn Error>> {
+        let mut binding_paralogs = Vec::new();
         let mut paralog_score = 0.0;
         let total_paralogs = self.paralogs.len() as f64;
         if total_paralogs == 0.0 {
-            return Ok(0.0);
+            return Ok((0.0, binding_paralogs));
         }
 
         for paralog_id in &self.paralogs {
             let paralog_sequence = fetch_gene_sequence(paralog_id)?;
             if paralog_sequence.contains(&guide.sequence) {
                 paralog_score += 1.0;
+                binding_paralogs.push(paralog_id.clone());
             }
         }
-        Ok(paralog_score / total_paralogs)
+        Ok((paralog_score / total_paralogs, binding_paralogs))
     }
 }
 
@@ -179,3 +181,6 @@ pub fn calculate_final_score(guide: &mut GuideRNA) {
         breakdown.push(("Final Combined Score".to_string(), final_score));
     }
 }
+
+
+literally keep making the same api calls

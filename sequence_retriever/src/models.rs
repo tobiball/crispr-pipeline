@@ -1,4 +1,8 @@
+// src/models.rs
+
 use crate::exon_intron::ExonDetail;
+use crate::snps::Variation;
+use crate::protein_domains::ProteinFeature;
 
 pub struct GuideRNA {
     pub sequence: String,
@@ -22,5 +26,8 @@ pub struct GuideRNA {
     pub custom_biological_score: Option<f64>,
     pub score_breakdown: Option<Vec<(String, f64)>>,
     pub final_score: Option<f64>,
-    pub overlapping_exons: Vec<ExonDetail>
+    pub overlapping_exons: Vec<ExonDetail>,
+    pub overlapping_snps: Vec<Variation>,
+    pub overlapping_protein_domains: Vec<ProteinFeature>,
+    pub binding_paralogs: Vec<String>,
 }

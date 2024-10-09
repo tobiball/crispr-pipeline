@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let paralogs = fetch_paralogous_genes(&gene_id, "human")?.into_iter().map(|p| p.target.id).collect();
 
     // Construct GeneInfo struct
-    let mut gene_info = GeneInfo {
+    let gene_info = GeneInfo {
         gene_id: gene_id.clone(),
         gene_symbol: gene_symbol.to_string(),
         chrom: chrom.clone(),
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         snps,
         regulatory_elements,
         paralogs,
-        exons, // Use the collected exons here
+        exons,
     };
 
     // Define the main output directory with absolute path
@@ -95,9 +95,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         python_executable: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop_env/bin/python2.7".to_string(),
         chopchop_script: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop.py".to_string(),
         genome: "hg38".to_string(),
-        target_type: "GENE_NAME".to_string(), // Specify the target type as GENE_NAME
-        target: gene_symbol.to_string(),      // Use the gene symbol as the target
-        output_dir: chopchop_output_dir.clone(), // Use the dedicated CHOPCHOP output directory
+        target_type: "GENE".to_string(), // Changed from 'GENE_NAME' to 'GENE'
+        target: gene_symbol.to_string(), // Use the gene symbol as the target
+        output_dir: chopchop_output_dir.clone(),
         pam_sequence: "NGG".to_string(),
         guide_length: 20,
         scoring_method: "DOENCH_2016".to_string(),
@@ -122,7 +122,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Display top guides
     println!("Top guide RNAs:");
-    for (index, guide) in guides.iter().take(3).enumerate() {
+    for (index, guide) in guides.iter().take(50).enumerate() {
         println!("Guide {}: {}", index + 1, guide.sequence);
         println!("Position: {}:{}-{}, Strand: {}", guide.chromosome, guide.start, guide.end, guide.strand);
         println!("GC Content: {:.2}%", guide.gc_content);
@@ -135,6 +135,38 @@ fn main() -> Result<(), Box<dyn Error>> {
                 println!("  {}: {:.2}", score_name, score_value);
             }
         }
+        // Additional info
+        if !guide.overlapping_snps.is_empty() {
+            println!("Overlapping SNPs:");
+            for snp in &guide.overlapping_snps {
+                println!("  SNP ID: {}, Position: {}:{}-{}", snp.id, snp.seq_region_name.as_deref().unwrap_or(""), snp.start, snp.end);
+            }
+        } else {
+            println!("Overlapping SNPs: None");
+        }
+
+        if let Some(expression_level) = guide.expression_score {
+            println!("Expression Level at Guide Position: {:.2}", expression_level);
+        }
+
+        if !guide.binding_paralogs.is_empty() {
+            println!("Binding Paralogs:");
+            for paralog_id in &guide.binding_paralogs {
+                println!("  Paralog Gene ID: {}", paralog_id);
+            }
+        } else {
+            println!("Binding Paralogs: None");
+        }
+
+        if !guide.overlapping_protein_domains.is_empty() {
+            println!("Overlapping Protein Domains:");
+            for domain in &guide.overlapping_protein_domains {
+                println!("  Domain ID: {:?}, Description: {:?}", domain.id, domain.description);
+            }
+        } else {
+            println!("Overlapping Protein Domains: None");
+        }
+
         println!("Final Combined Score: {:.2}", guide.final_score.unwrap());
         println!();
     }

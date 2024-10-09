@@ -7,11 +7,12 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Grna scoring enhancements">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Fix expression and improve scoring">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/models.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -134,7 +135,7 @@
       <workItem from="1728293145021" duration="1410000" />
       <workItem from="1728295831884" duration="5452000" />
       <workItem from="1728375764816" duration="17486000" />
-      <workItem from="1728466680077" duration="7504000" />
+      <workItem from="1728466680077" duration="11324000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -240,7 +241,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728398689683</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="Fix expression and improve scoring">
+      <option name="closed" value="true" />
+      <created>1728483215333</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1728483215333</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -284,6 +293,7 @@
     <MESSAGE value="Add better scoring - broken api urls" />
     <MESSAGE value="Clippy" />
     <MESSAGE value="Grna scoring enhancements" />
-    <option name="LAST_COMMIT_MESSAGE" value="Grna scoring enhancements" />
+    <MESSAGE value="Fix expression and improve scoring" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fix expression and improve scoring" />
   </component>
 </project>

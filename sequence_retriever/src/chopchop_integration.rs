@@ -118,6 +118,9 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<GuideRNA>, Box<dyn
             score_breakdown: None,
             final_score: None,
             overlapping_exons: vec![],
+            overlapping_snps: vec![],
+            overlapping_protein_domains: vec![],
+            binding_paralogs: vec![],
         };
         guides.push(guide);
     }
