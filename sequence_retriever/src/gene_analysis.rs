@@ -183,4 +183,4 @@ pub fn calculate_final_score(guide: &mut GuideRNA) {
 }
 
 
-literally keep making the same api calls
+literally keep making the same api calls, expression score defnitley broken, check domains and paralogs
