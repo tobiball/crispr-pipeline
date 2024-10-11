@@ -63,23 +63,22 @@ impl GeneInfo {
         score_breakdown.push(("Off-Target Score".to_string(), off_target_score));
 
         // SNP Score
-        // SNP Score
         let overlapping_snps: Vec<Variation> = self.snps.iter()
             .filter(|snp| snp.start <= guide.end && snp.end >= guide.start)
             .cloned()
             .collect();
 
-        let mut snp_penalty = 0.0;
-        for snp in &overlapping_snps {
-            if let Some(freq) = snp.minor_allele_freq {
-                // Apply a penalty based on the minor allele frequency
-                let penalty = freq * PENALTY_PER_SNP; // Adjust the scaling factor as needed
-                snp_penalty += penalty;
-            }
-        }
-        let snp_score = (100.0 - snp_penalty).max(0.0);
-        score_breakdown.push(("SNP Score".to_string(), snp_score));
-
+        // let mut snp_penalty = 0.0;
+        // for snp in &overlapping_snps {
+        //     if let Some(freq) = snp.minor_allele_freq {
+        //         // Apply a penalty based on the minor allele frequency
+        //         let penalty = freq * PENALTY_PER_SNP; // Adjust the scaling factor as needed
+        //         snp_penalty += penalty;
+        //     }
+        // }
+        // let snp_score = (100.0 - snp_penalty).max(0.0);
+        // score_breakdown.push(("SNP Score".to_string(), snp_score));
+        //
         // Store the overlapping SNPs in the guide
         guide.overlapping_snps = overlapping_snps;
 
@@ -164,7 +163,7 @@ impl GeneInfo {
         // Calculate final biological score
         let final_biological_score =
             OFF_TARGET_WEIGHT * off_target_score +
-                SNP_WEIGHT * snp_score +
+                // SNP_WEIGHT * snp_score +
                 EXPRESSION_WEIGHT * normalized_expression_score +
                 CONSERVATION_WEIGHT * conservation_score +
                 SELF_COMP_WEIGHT * self_comp_score +
