@@ -53,8 +53,11 @@ where
     }
 }
 
+use crate::api_handler::APIHandler;
+
 /// Fetch SNPs in a given genomic region using Ensembl REST API.
 pub fn fetch_snps_in_region(
+    api_handler: &APIHandler,
     chromosome: String,
     start: u64,
     end: u64,
@@ -63,26 +66,19 @@ pub fn fetch_snps_in_region(
         "Fetching SNPs in region {}:{}-{}",
         chromosome, start, end
     );
-    let url = format!(
-        "https://rest.ensembl.org/overlap/region/human/{}:{}-{}?feature=variation",
+    let endpoint = format!(
+        "/overlap/region/human/{}:{}-{}?feature=variation",
         chromosome.trim_start_matches("chr"),
         start,
         end
     );
-    let client = Client::new();
-    let response = client
-        .get(&url)
-        .header("Accept", "application/json")
-        .send()?;
 
-    if response.status().is_success() {
-        let variations: Vec<Variation> = response.json()?;
-        Ok(variations)
-    } else {
-        let status = response.status();
-        let error_text = response.text()?;
-        eprintln!("Error fetching SNPs: HTTP {}", status);
-        eprintln!("Error details: {}", error_text);
-        Err("Failed to fetch SNPs.".into())
-    }
+    // Use the APIHandler to make the GET request
+    let data = api_handler.get(&endpoint)?;
+
+    // Parse the response data into a Vec<Variation>
+    let variations: Vec<Variation> = serde_json::from_value(data)?;
+
+    Ok(variations)
 }
+

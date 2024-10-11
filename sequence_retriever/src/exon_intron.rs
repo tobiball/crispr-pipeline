@@ -1,5 +1,7 @@
 // src/exon_intron.rs
 
+use std::collections::HashSet;
+use std::collections::HashMap;
 use std::error::Error;
 use serde_json::Value;
 use crate::api_handler::APIHandler;
@@ -17,7 +19,7 @@ pub struct ExonDetail {
     pub start: u64,
     pub end: u64,
     pub strand: i8,
-    pub exon_number: String,
+    pub exon_number: u32,
     pub seq_region_name: String,
     pub expression_score: Option<f64>,
     pub expression_missing_reason: Option<MissingReason>,
@@ -55,34 +57,41 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
         .as_array()
         .ok_or("No transcripts found")?;
 
+    // Fetch exon numbers using the same API handler
+    let exon_number_map = get_exon_numbers(api_handler, gene_id)?;
+
     let mut transcripts = Vec::new();
 
-    for t in transcripts_json {
+    for (transcript_index, t) in transcripts_json.iter().enumerate() {
         let exons_json = t["Exon"]
             .as_array()
-            .ok_or("No exons found for transcript")?;
+            .ok_or_else(|| format!("No exons found for transcript index {}", transcript_index))?;
 
-        // Assuming you already have this in your code
-        let exons: Vec<ExonDetail> = exons_json.iter().map(|e| ExonDetail {
-            id: e["id"].as_str().unwrap_or("").to_string(), // Ensembl exon ID
-            start: e["start"].as_u64().unwrap_or(0),
-            end: e["end"].as_u64().unwrap_or(0),
-            strand: e["strand"].as_i64().unwrap_or(0) as i8,
-            exon_number: e["exon_number"].as_str().unwrap_or("").to_string(),
-            seq_region_name: e["seq_region_name"].as_str().unwrap_or("").to_string(),
-            expression_score: None,
-            expression_missing_reason: Some(MissingReason::NotFetched),
-            conservation_score: None,
-            conservation_missing_reason: Some(MissingReason::NotFetched),
-            is_paralogous: None,
-            paralogous_missing_reason: Some(MissingReason::NotFetched),
+        // Pretty-print the exons array
+        let exons: Result<Vec<ExonDetail>, Box<dyn Error>> = exons_json.iter().enumerate().map(|(exon_index, e)| {
+            let exon_id = e["id"].as_str().ok_or_else(|| format!("Missing id for exon {} in transcript {}", exon_index, transcript_index))?.to_string();
+            let exon_number = exon_number_map.get(&exon_id).cloned().unwrap_or_else(|| (exon_index + 1) as u32);
+
+            Ok(ExonDetail {
+                id: exon_id,
+                start: e["start"].as_u64().ok_or_else(|| format!("Missing start for exon {} in transcript {}", exon_index, transcript_index))?,
+                end: e["end"].as_u64().ok_or_else(|| format!("Missing end for exon {} in transcript {}", exon_index, transcript_index))?,
+                strand: e["strand"].as_i64().ok_or_else(|| format!("Missing strand for exon {} in transcript {}", exon_index, transcript_index))? as i8,
+                exon_number,
+                seq_region_name: e["seq_region_name"].as_str().ok_or_else(|| format!("Missing seq_region_name for exon {} in transcript {}", exon_index, transcript_index))?.to_string(),
+                expression_score: None,
+                expression_missing_reason: Some(MissingReason::NotFetched),
+                conservation_score: None,
+                conservation_missing_reason: Some(MissingReason::NotFetched),
+                is_paralogous: None,
+                paralogous_missing_reason: Some(MissingReason::NotFetched),
+            })
         }).collect();
 
-
         let transcript = TranscriptDetail {
-            id: t["id"].as_str().unwrap_or("").to_string(),
+            id: t["id"].as_str().ok_or_else(|| format!("Missing id for transcript {}", transcript_index))?.to_string(),
             is_canonical: t["is_canonical"].as_u64().map(|v| v as u8),
-            exons,
+            exons: exons?,
         };
 
         transcripts.push(transcript);
@@ -91,17 +100,37 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
     Ok(transcripts)
 }
 
-pub fn fetch_expression_score_at_position(
-    gtex_api: &APIHandler,
-    gene_id: &str,
-    chromosome: &str,
-    start: u64,
-    end: u64,
-    ensembl_api: &APIHandler,
-    exons: &[ExonDetail],
-) -> Result<Option<f64>, Box<dyn Error>> {
-    let versioned_gene_id = fetch_versioned_gene_id(ensembl_api, gene_id)?;
+/// Get exon numbers from GTEx Portal API
+fn get_exon_numbers(api_handler: &APIHandler, gene_id: &str) -> Result<HashMap<String, u32>, Box<dyn Error>> {
+    println!("Fetching exon numbers for gene ID: {}", gene_id);
+    let endpoint = format!("/lookup/id/{}?expand=1", gene_id);
+    let gene_data: Value = api_handler.get(&endpoint)?;
 
+    let transcripts = gene_data["Transcript"]
+        .as_array()
+        .ok_or("No transcripts found")?;
+
+    let mut exon_number_map = HashMap::new();
+
+    for transcript in transcripts {
+        if let Some(exons) = transcript["Exon"].as_array() {
+            for (index, exon) in exons.iter().enumerate() {
+                if let Some(exon_id) = exon["id"].as_str() {
+                    exon_number_map.insert(exon_id.to_string(), (index + 1) as u32);
+                }
+            }
+        }
+    }
+
+    Ok(exon_number_map)
+}
+
+pub fn fetch_exon_expression_data(
+    gtex_api: &APIHandler,
+    versioned_gene_id: &str,
+    tissue_filter: Option<&[&str]>,
+) -> Result<HashMap<u32, f64>, Box<dyn Error>> {
+    println!("Fetching expression data for gene ID: {}", versioned_gene_id);
     let query = format!(
         "/expression/medianExonExpression?gencodeId={}&datasetId=gtex_v8",
         versioned_gene_id
@@ -109,47 +138,47 @@ pub fn fetch_expression_score_at_position(
 
     let data: Value = gtex_api.get(&query)?;
 
-    let exon_expression_data = data["data"]
+    let exon_expression_array = data["data"]
         .as_array()
-        .ok_or_else(|| Box::<dyn Error>::from("No exon expression data found in API response"))?;
+        .ok_or("No exon expression data found")?;
 
-    if exon_expression_data.is_empty() {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("No exon expression data available for gene ID: {}", versioned_gene_id)
-        )));
-    }
+    let tissue_set: Option<HashSet<&str>> = tissue_filter.map(|tissues| tissues.iter().cloned().collect());
 
-    let mut sorted_exons = exons.to_vec();
-    sorted_exons.sort_by_key(|e| e.start);
+    let mut exon_totals: HashMap<u32, f64> = HashMap::new();
+    let mut exon_counts: HashMap<u32, u32> = HashMap::new();
 
-    let mut relevant_expression = None;
+    for exon_data in exon_expression_array {
+        let exon_id = exon_data["exonId"].as_str().ok_or("Missing exonId")?;
+        let median_tpm = exon_data["median"].as_f64().ok_or("Missing median")?;
+        let tissue = exon_data["tissueSiteDetailId"].as_str().ok_or("Missing tissue")?;
 
-    for (i, exon) in exon_expression_data.iter().enumerate() {
-        if i < sorted_exons.len() {
-            let ensembl_exon = &sorted_exons[i];
-            if ensembl_exon.start <= end && ensembl_exon.end >= start {
-                let median_tpm = exon["median"].as_f64()
-                    .ok_or_else(|| Box::<dyn Error>::from("Failed to extract median TPM"))?;
+        if tissue_set.as_ref().map_or(true, |set| set.contains(tissue)) {
+            let parts: Vec<&str> = exon_id.rsplit('_').collect();
+            let exon_number: u32 = parts.get(0)
+                .ok_or("Failed to parse exon number")?
+                .parse()
+                .map_err(|e| format!("Failed to parse exon number as u32: {}", e))?;
 
-                relevant_expression = Some(median_tpm);
-                break;
-            }
-        } else {
-            break;
+            exon_totals.entry(exon_number)
+                .and_modify(|total| *total += median_tpm)
+                .or_insert(median_tpm);
+
+            exon_counts.entry(exon_number)
+                .and_modify(|count| *count += 1)
+                .or_insert(1);
         }
     }
 
-    if relevant_expression.is_none() {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("No exon expression data found for region {}:{}-{}", chromosome, start, end)
-        )));
+    let mut exon_expression_data = HashMap::new();
+    for (exon_number, total_expression) in exon_totals {
+        if let Some(&count) = exon_counts.get(&exon_number) {
+            let average_expression = total_expression / count as f64;
+            exon_expression_data.insert(exon_number, average_expression);
+        }
     }
 
-    Ok(relevant_expression)
+    Ok(exon_expression_data)
 }
-
 
 /// Fetch conservation score at a given position using Ensembl API.
 pub fn fetch_conservation_score_at_position(
@@ -199,7 +228,7 @@ pub fn determine_paralogous_exons(
     // Fetch exons from paralogous genes
     let mut paralog_exons = Vec::new();
     for paralog_id in paralog_gene_ids {
-        let transcripts = crate::exon_intron::fetch_all_transcripts(ensembl_api, paralog_id)?;
+        let transcripts = fetch_all_transcripts(ensembl_api, paralog_id)?;
         for transcript in transcripts {
             paralog_exons.extend(transcript.exons);
         }
@@ -221,4 +250,11 @@ pub fn determine_paralogous_exons(
     }
 
     Ok(())
+}
+
+pub fn find_overlapping_exons(exons: &[ExonDetail], start: u64, end: u64) -> Vec<ExonDetail> {
+    exons.iter()
+        .filter(|exon| exon.start <= end && exon.end >= start)
+        .cloned()
+        .collect()
 }

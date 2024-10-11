@@ -9,10 +9,13 @@
   <component name="ChangeListManager">
     <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Fix expression and improve scoring">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/models.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/paralogs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/paralogs.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/protein_domains.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/protein_domains.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/regulatory_elements.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/regulatory_elements.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/snps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/snps.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -136,6 +139,9 @@
       <workItem from="1728295831884" duration="5452000" />
       <workItem from="1728375764816" duration="17486000" />
       <workItem from="1728466680077" duration="11324000" />
+      <workItem from="1728548192982" duration="18699000" />
+      <workItem from="1728629379802" duration="12465000" />
+      <workItem from="1728644693806" duration="354000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />

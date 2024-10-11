@@ -4,6 +4,7 @@ use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::error::Error;
 use serde_json::Value;
+use crate::api_handler::APIHandler;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ProteinFeature {
@@ -19,52 +20,34 @@ pub struct ProteinFeature {
 
 
 /// Fetch protein domains for a transcript and determine if they are essential.
-pub fn fetch_protein_domains(transcript_id: &str) -> Result<Vec<ProteinFeature>, Box<dyn Error>> {
+pub fn fetch_protein_domains(
+    api_handler: &APIHandler,
+    transcript_id: &str
+) -> Result<Vec<ProteinFeature>, Box<dyn Error>> {
     println!(
         "Fetching protein features (domains) for transcript ID: {}",
         transcript_id
     );
-    // First, fetch the translation ID
-    let url = format!(
-        "https://rest.ensembl.org/lookup/id/{}?expand=1",
-        transcript_id
-    );
-    let client = Client::new();
-    let response = client
-        .get(&url)
-        .header("Accept", "application/json")
-        .send()?;
 
-    let transcript_data: Value = response.json()?;
+    // First, fetch the translation ID
+    let endpoint = format!("/lookup/id/{}?expand=1", transcript_id);
+    let transcript_data: Value = api_handler.get(&endpoint)?;
     let translation_id = transcript_data["Translation"]["id"]
         .as_str()
         .ok_or("Translation ID not found.")?;
 
     // Now, fetch protein features using the translation ID
-    let url = format!(
-        "https://rest.ensembl.org/overlap/translation/{}?feature=protein_feature",
-        translation_id
-    );
-    let response = client
-        .get(&url)
-        .header("Accept", "application/json")
-        .send()?;
+    let endpoint = format!("/overlap/translation/{}?feature=protein_feature", translation_id);
+    let data: Value = api_handler.get(&endpoint)?;
 
-    if response.status().is_success() {
-        let mut protein_features: Vec<ProteinFeature> = response.json()?;
+    // Deserialize the response data into a Vec<ProteinFeature>
+    let mut protein_features: Vec<ProteinFeature> = serde_json::from_value(data)?;
 
-        // Set is_essential based on criteria
-        for feature in &mut protein_features {
-            feature.is_essential = is_feature_essential(feature);
-        }
-        Ok(protein_features)
-    } else {
-        let status = response.status();
-        let error_text = response.text()?;
-        eprintln!("Error fetching protein features: HTTP {}", status);
-        eprintln!("Error details: {}", error_text);
-        Err("Failed to fetch protein features.".into())
+    // Set is_essential based on criteria
+    for feature in &mut protein_features {
+        feature.is_essential = is_feature_essential(feature);
     }
+    Ok(protein_features)
 }
 
 /// Determine if a protein feature is essential based on its description or ID.

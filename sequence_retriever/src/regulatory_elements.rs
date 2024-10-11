@@ -3,6 +3,8 @@
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::error::Error;
+use serde_json::Value;
+use crate::api_handler::APIHandler;
 
 #[derive(Deserialize, Debug)]
 pub struct RegulatoryFeature {
@@ -13,29 +15,29 @@ pub struct RegulatoryFeature {
     pub feature_type: String,
 }
 
-pub fn fetch_regulatory_elements(chromosome: String, start: u64, end: u64) -> Result<Vec<RegulatoryFeature>, Box<dyn Error>> {
+/// Fetch regulatory elements in a given genomic region using Ensembl REST API.
+pub fn fetch_regulatory_elements(
+    api_handler: &APIHandler,
+    chromosome: String,
+    start: u64,
+    end: u64
+) -> Result<Vec<RegulatoryFeature>, Box<dyn Error>> {
     println!(
         "Fetching regulatory elements in region {}:{}-{}",
         chromosome, start, end
     );
-    let url = format!(
-        "https://rest.ensembl.org/overlap/region/human/{}:{}-{}?feature=regulatory",
+
+    // Construct the endpoint
+    let endpoint = format!(
+        "/overlap/region/human/{}:{}-{}?feature=regulatory",
         chromosome, start, end
     );
-    let client = Client::new();
-    let response = client
-        .get(&url)
-        .header("Accept", "application/json")
-        .send()?;
 
-    if response.status().is_success() {
-        let regulatory_features: Vec<RegulatoryFeature> = response.json()?;
-        Ok(regulatory_features)
-    } else {
-        let status = response.status();
-        let error_text = response.text()?;
-        eprintln!("Error fetching regulatory elements: HTTP {}", status);
-        eprintln!("Error details: {}", error_text);
-        Err("Failed to fetch regulatory elements.".into())
-    }
+    // Use the APIHandler to make the GET request
+    let data: Value = api_handler.get(&endpoint)?;
+
+    // Parse the response data into a Vec<RegulatoryFeature>
+    let regulatory_features: Vec<RegulatoryFeature> = serde_json::from_value(data)?;
+
+    Ok(regulatory_features)
 }

@@ -14,13 +14,14 @@ mod models;
 use crate::gene_analysis::calculate_final_score;
 use crate::api_handler::APIHandler;
 use crate::gene_sequence::{fetch_gene_id, fetch_gene_info};
-use crate::exon_intron::{fetch_all_transcripts, ExonDetail};
+use crate::exon_intron::{fetch_all_transcripts, fetch_versioned_gene_id, fetch_exon_expression_data, ExonDetail, MissingReason, find_overlapping_exons};
 use crate::protein_domains::fetch_protein_domains;
 use crate::snps::fetch_snps_in_region;
 use crate::regulatory_elements::fetch_regulatory_elements;
-use crate::paralogs::fetch_paralogous_genes;
 use crate::gene_analysis::GeneInfo;
 use crate::chopchop_integration::{run_chopchop, parse_chopchop_results, ChopchopOptions};
+use std::collections::HashMap;
+
 
 use std::error::Error;
 use std::fs;
@@ -32,6 +33,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Define gene symbol
     let gene_symbol = "OAT";
+
+    let mut genomic_sequences = HashMap::new();
 
     // Fetch gene ID and basic info
     let gene_id = fetch_gene_id(gene_symbol)?;
@@ -57,14 +60,35 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
 
     // Fetch additional gene data
-    let protein_features = fetch_protein_domains(&transcripts[0].id)?;
-    let snps = fetch_snps_in_region(chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
-    let regulatory_elements = fetch_regulatory_elements(chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
-    let paralogs = fetch_paralogous_genes(&gene_id, "human")?.into_iter().map(|p| p.target.id).collect();
+    let protein_features = fetch_protein_domains(&ensembl_api,&transcripts[0].id)?;
+    let snps = fetch_snps_in_region(&ensembl_api,chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
+    let regulatory_elements = fetch_regulatory_elements(&ensembl_api,chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
+
+    let versioned_gene_id = fetch_versioned_gene_id(&ensembl_api, &gene_id)?;
+
+    // Fetch expression data and store it in a HashMap
+    let exon_expression_data = fetch_exon_expression_data(&gtex_api, &versioned_gene_id, None)?;
+
+    // Collect all exons from transcripts
+    let mut exons: Vec<ExonDetail> = transcripts.iter()
+        .flat_map(|t| t.exons.clone())
+        .collect();
+
+    // Assign expression scores to exons
+    for exon in &mut exons {
+        let exon_number = exon.exon_number; // No need to clone, u32 implements Copy
+        if let Some(expression_score) = exon_expression_data.get(&exon_number) {
+            exon.expression_score = Some(*expression_score);
+            exon.expression_missing_reason = None;
+        } else {
+            exon.expression_missing_reason = Some(MissingReason::NotFound);
+        }
+    }
 
     // Construct GeneInfo struct
     let gene_info = GeneInfo {
         gene_id: gene_id.clone(),
+        versioned_gene_id,
         gene_symbol: gene_symbol.to_string(),
         chrom: chrom.clone(),
         strand: gene_info_basic.strand,
@@ -74,8 +98,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         protein_features,
         snps,
         regulatory_elements,
-        paralogs,
         exons,
+        exon_expression_data,
     };
 
     // Define the main output directory with absolute path
@@ -113,7 +137,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut guides = parse_chopchop_results(&chopchop_output_dir)?;
 
     for guide in &mut guides {
-        gene_info.score_guide_rna(guide, &ensembl_api, &gtex_api)?;
+        guide.overlapping_exons = find_overlapping_exons(&gene_info.exons, guide.start, guide.end);
+        gene_info.score_guide_rna(guide, &ensembl_api, &gtex_api, &mut genomic_sequences)?;
+        calculate_final_score(guide);
+    }
+
+    for guide in &mut guides {
+        gene_info.score_guide_rna(guide, &ensembl_api, &gtex_api, &mut genomic_sequences)?;
         calculate_final_score(guide);
     }
 
@@ -122,20 +152,42 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Display top guides
     println!("Top guide RNAs:");
-    for (index, guide) in guides.iter().take(50).enumerate() {
+    for (index, guide) in guides.iter().take(5).enumerate() {
         println!("Guide {}: {}", index + 1, guide.sequence);
         println!("Position: {}:{}-{}, Strand: {}", guide.chromosome, guide.start, guide.end, guide.strand);
         println!("GC Content: {:.2}%", guide.gc_content);
         println!("Self-complementarity: {}", guide.self_complementarity);
         println!("Mismatches: MM0={}, MM1={}, MM2={}, MM3={}", guide.mm0, guide.mm1, guide.mm2, guide.mm3);
         println!("CHOPCHOP Efficiency: {:.2}", guide.chopchop_efficiency);
-        println!("Score Breakdown:");
-        if let Some(breakdown) = &guide.score_breakdown {
-            for (score_name, score_value) in breakdown {
-                println!("  {}: {:.2}", score_name, score_value);
-            }
+
+        // Display expression data if available
+        if let Some(expression_level) = guide.expression_score {
+            println!("Expression Level at Guide Position: {:.2}", expression_level);
+        } else {
+            println!("Expression Level at Guide Position: Not Available");
         }
-        // Additional info
+
+        // Display overlapping exons with expression levels
+        if !guide.overlapping_exons.is_empty() {
+            println!("Overlapping Exons:");
+            for exon in &guide.overlapping_exons {
+                println!(
+                    "  Exon ID: {}, Position: {}:{}-{}, Expression Level: {}",
+                    exon.id,
+                    exon.seq_region_name,
+                    exon.start,
+                    exon.end,
+                    exon
+                        .expression_score
+                        .map(|score| format!("{:.2}", score))
+                        .unwrap_or_else(|| "Not Available".to_string())
+                );
+            }
+        } else {
+            println!("Overlapping Exons: None");
+        }
+
+        // Additional info about SNPs
         if !guide.overlapping_snps.is_empty() {
             println!("Overlapping SNPs:");
             for snp in &guide.overlapping_snps {
@@ -145,19 +197,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Overlapping SNPs: None");
         }
 
-        if let Some(expression_level) = guide.expression_score {
-            println!("Expression Level at Guide Position: {:.2}", expression_level);
-        }
-
-        if !guide.binding_paralogs.is_empty() {
-            println!("Binding Paralogs:");
-            for paralog_id in &guide.binding_paralogs {
-                println!("  Paralog Gene ID: {}", paralog_id);
-            }
-        } else {
-            println!("Binding Paralogs: None");
-        }
-
+        // Display overlapping protein domains
         if !guide.overlapping_protein_domains.is_empty() {
             println!("Overlapping Protein Domains:");
             for domain in &guide.overlapping_protein_domains {
@@ -167,9 +207,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Overlapping Protein Domains: None");
         }
 
+        // Display score breakdown
+        println!("Score Breakdown:");
+        if let Some(breakdown) = &guide.score_breakdown {
+            for (score_name, score_value) in breakdown {
+                println!("  {}: {:.2}", score_name, score_value);
+            }
+        }
         println!("Final Combined Score: {:.2}", guide.final_score.unwrap());
         println!();
     }
+
 
     Ok(())
 }
