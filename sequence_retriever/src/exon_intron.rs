@@ -29,11 +29,16 @@ pub struct ExonDetail {
     pub paralogous_missing_reason: Option<MissingReason>,
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct TranscriptDetail {
     pub id: String,
     pub is_canonical: Option<u8>,
+    pub biotype: String,  // Add this line
     pub exons: Vec<ExonDetail>,
+}
+
+pub fn is_coding_transcript(transcript: &TranscriptDetail) -> bool {
+    transcript.biotype == "protein_coding"
 }
 
 /// Fetch the versioned gene ID from Ensembl API.
@@ -91,8 +96,10 @@ pub fn fetch_all_transcripts(api_handler: &APIHandler, gene_id: &str) -> Result<
         let transcript = TranscriptDetail {
             id: t["id"].as_str().ok_or_else(|| format!("Missing id for transcript {}", transcript_index))?.to_string(),
             is_canonical: t["is_canonical"].as_u64().map(|v| v as u8),
+            biotype: t["biotype"].as_str().unwrap_or("").to_string(),  // Extract biotype here
             exons: exons?,
         };
+
 
         transcripts.push(transcript);
     }

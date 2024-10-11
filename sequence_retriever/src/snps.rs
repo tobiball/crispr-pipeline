@@ -21,8 +21,8 @@ pub struct Variation {
         rename = "consequence_type",
         deserialize_with = "deserialize_consequence_type"
     )]
-    pub consequence_type: Option<Vec<String>>,
-    pub minor_allele_freq: Option<f64>, // Correct field for allele frequency
+    pub consequence_type: Option<Vec<String>>, // Use custom deserializer
+    pub minor_allele_freq: Option<f64>,
 }
 
 fn deserialize_consequence_type<'de, D>(
@@ -32,35 +32,34 @@ where
     D: Deserializer<'de>,
 {
     let helper: Option<Value> = Option::deserialize(deserializer)?;
-    if let Some(value) = helper {
-        match value {
-            Value::String(s) => Ok(Some(vec![s])),
-            Value::Array(arr) => {
-                let mut res = Vec::new();
-                for item in arr {
-                    if let Value::String(s) = item {
-                        res.push(s);
-                    } else {
-                        return Err(D::Error::custom("Expected string in array"));
-                    }
+    match helper {
+        Some(Value::String(s)) => Ok(Some(vec![s])), // Convert single string to a vector
+        Some(Value::Array(arr)) => {
+            let mut result = Vec::new();
+            for item in arr {
+                if let Value::String(s) = item {
+                    result.push(s);
+                } else {
+                    return Err(D::Error::custom("Expected a string in the array"));
                 }
-                Ok(Some(res))
             }
-            _ => Err(D::Error::custom("Invalid type for consequence_type")),
+            Ok(Some(result))
         }
-    } else {
-        Ok(None)
+        None => Ok(None), // Handle missing consequence_type
+        _ => Err(D::Error::custom("Invalid type for consequence_type")),
     }
 }
 
+
+
 use crate::api_handler::APIHandler;
 
-/// Fetch SNPs in a given genomic region using Ensembl REST API.
 pub fn fetch_snps_in_region(
     api_handler: &APIHandler,
     chromosome: String,
     start: u64,
     end: u64,
+    max_frequency: Option<f64>,
 ) -> Result<Vec<Variation>, Box<dyn StdError>> {
     println!(
         "Fetching SNPs in region {}:{}-{}",
@@ -77,8 +76,12 @@ pub fn fetch_snps_in_region(
     let data = api_handler.get(&endpoint)?;
 
     // Parse the response data into a Vec<Variation>
-    let variations: Vec<Variation> = serde_json::from_value(data)?;
+    let mut variations: Vec<Variation> = serde_json::from_value(data)?;
+
+    // Filter SNPs by minor allele frequency if a threshold is specified
+    if let Some(threshold) = max_frequency {
+        variations.retain(|snp| snp.minor_allele_freq.unwrap_or(0.0) < threshold);
+    }
 
     Ok(variations)
 }
-

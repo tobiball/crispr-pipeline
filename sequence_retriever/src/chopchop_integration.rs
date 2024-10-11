@@ -121,6 +121,8 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<GuideRNA>, Box<dyn
             overlapping_snps: vec![],
             overlapping_protein_domains: vec![],
             binding_paralogs: vec![],
+            covered_transcripts: 0,
+            total_transcripts: 0,
         };
         guides.push(guide);
     }

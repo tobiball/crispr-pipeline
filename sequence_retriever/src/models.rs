@@ -30,4 +30,25 @@ pub struct GuideRNA {
     pub overlapping_snps: Vec<Variation>,
     pub overlapping_protein_domains: Vec<ProteinFeature>,
     pub binding_paralogs: Vec<String>,
+    pub covered_transcripts: usize,
+    pub total_transcripts: usize,
+}
+
+
+pub struct TranscriptImpact {
+    pub transcript_id: String,
+    pub is_canonical: bool,
+    pub exon_overlap: Vec<ExonDetail>,
+    pub protein_domain_overlap: Vec<ProteinFeature>,
+    pub position_type: PositionType,
+    pub transcript_specific_score: Option<f64>,
+}
+
+pub enum PositionType {
+    Exon,
+    Intron,
+    UTR5,
+    UTR3,
+    Upstream,
+    Downstream,
 }

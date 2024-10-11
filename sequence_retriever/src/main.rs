@@ -14,7 +14,7 @@ mod models;
 use crate::gene_analysis::calculate_final_score;
 use crate::api_handler::APIHandler;
 use crate::gene_sequence::{fetch_gene_id, fetch_gene_info};
-use crate::exon_intron::{fetch_all_transcripts, fetch_versioned_gene_id, fetch_exon_expression_data, ExonDetail, MissingReason, find_overlapping_exons};
+use crate::exon_intron::{fetch_all_transcripts, fetch_versioned_gene_id, fetch_exon_expression_data, ExonDetail, MissingReason, find_overlapping_exons, TranscriptDetail};
 use crate::protein_domains::fetch_protein_domains;
 use crate::snps::fetch_snps_in_region;
 use crate::regulatory_elements::fetch_regulatory_elements;
@@ -54,6 +54,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    // Find the canonical transcript based on the is_canonical field
+    let canonical_transcript = transcripts
+        .iter()
+        .find(|t| t.is_canonical == Some(1))
+        .cloned() // Clone the transcript to own the data
+        .ok_or("Canonical transcript not found")?;
+
+
     // Collect all exons from transcripts
     let exons: Vec<ExonDetail> = transcripts.iter()
         .flat_map(|t| t.exons.clone())
@@ -61,7 +69,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Fetch additional gene data
     let protein_features = fetch_protein_domains(&ensembl_api,&transcripts[0].id)?;
-    let snps = fetch_snps_in_region(&ensembl_api,chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
+    let snps = fetch_snps_in_region(&ensembl_api, chrom.clone(), gene_info_basic.start, gene_info_basic.end, Some(0.05))?;
     let regulatory_elements = fetch_regulatory_elements(&ensembl_api,chrom.clone(), gene_info_basic.start, gene_info_basic.end)?;
 
     let versioned_gene_id = fetch_versioned_gene_id(&ensembl_api, &gene_id)?;
@@ -100,6 +108,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         regulatory_elements,
         exons,
         exon_expression_data,
+        canonical_transcript
     };
 
     // Define the main output directory with absolute path
@@ -142,17 +151,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         calculate_final_score(guide);
     }
 
-    for guide in &mut guides {
-        gene_info.score_guide_rna(guide, &ensembl_api, &gtex_api, &mut genomic_sequences)?;
-        calculate_final_score(guide);
-    }
-
     // Sort guides by final score
     guides.sort_by(|a, b| b.final_score.partial_cmp(&a.final_score).unwrap_or(std::cmp::Ordering::Equal));
 
     // Display top guides
     println!("Top guide RNAs:");
-    for (index, guide) in guides.iter().take(5).enumerate() {
+    for (index, guide) in guides.iter().take(50).enumerate() {
         println!("Guide {}: {}", index + 1, guide.sequence);
         println!("Position: {}:{}-{}, Strand: {}", guide.chromosome, guide.start, guide.end, guide.strand);
         println!("GC Content: {:.2}%", guide.gc_content);
@@ -165,6 +169,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Expression Level at Guide Position: {:.2}", expression_level);
         } else {
             println!("Expression Level at Guide Position: Not Available");
+        }
+
+        // Display conservation score
+        if let Some(conservation_score) = guide.conservation_score {
+            println!("Conservation Score: {:.2}", conservation_score);
+        } else {
+            println!("Conservation Score: Not Available");
         }
 
         // Display overlapping exons with expression levels
@@ -186,16 +197,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         } else {
             println!("Overlapping Exons: None");
         }
-
-        // Additional info about SNPs
-        if !guide.overlapping_snps.is_empty() {
-            println!("Overlapping SNPs:");
-            for snp in &guide.overlapping_snps {
-                println!("  SNP ID: {}, Position: {}:{}-{}", snp.id, snp.seq_region_name.as_deref().unwrap_or(""), snp.start, snp.end);
-            }
-        } else {
-            println!("Overlapping SNPs: None");
+        println!("Overlapping SNPs:");
+        for snp in &guide.overlapping_snps {
+            let frequency_info = snp.minor_allele_freq
+                .map(|freq| format!("Frequency: {:.4}", freq))
+                .unwrap_or_else(|| "Frequency: Not Available".to_string());
+            println!(
+                "  SNP ID: {}, Position: {}:{}-{}, {}",
+                snp.id,
+                snp.seq_region_name.as_deref().unwrap_or(""),
+                snp.start,
+                snp.end,
+                frequency_info
+            );
         }
+
 
         // Display overlapping protein domains
         if !guide.overlapping_protein_domains.is_empty() {
@@ -207,6 +223,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Overlapping Protein Domains: None");
         }
 
+        // Display transcript coverage
+        println!("Transcript Coverage: {}/{} ({:.2}%)",
+                 guide.covered_transcripts,
+                 guide.total_transcripts,
+                 (guide.covered_transcripts as f64 / guide.total_transcripts as f64) * 100.0
+        );
+
         // Display score breakdown
         println!("Score Breakdown:");
         if let Some(breakdown) = &guide.score_breakdown {
@@ -217,7 +240,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("Final Combined Score: {:.2}", guide.final_score.unwrap());
         println!();
     }
-
 
     Ok(())
 }
