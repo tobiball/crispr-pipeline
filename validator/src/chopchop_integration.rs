@@ -4,7 +4,6 @@ use std::error::Error;
 use std::process::Command;
 use std::fs::File;
 use std::io::{BufRead, Write};
-use crate::models::GuideRNA;
 
 pub struct ChopchopOptions {
     pub python_executable: String,
@@ -63,6 +62,21 @@ pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+#[derive(Debug)]
+pub struct GuideRNA {
+    pub(crate) sequence: String,
+    pub(crate) chromosome: String,
+    pub(crate) start: u64,
+    pub(crate) end: u64,
+    pub(crate) strand: char,
+    gc_content: f64,
+    self_complementarity: u32,
+    mm0: u32,
+    mm1: u32,
+    mm2: u32,
+    mm3: u32,
+    chopchop_efficiency: f64
+}
 
 pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<GuideRNA>, Box<dyn Error>> {
     let txt_results_path = format!("{}/results.txt", output_dir);
@@ -108,21 +122,6 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<GuideRNA>, Box<dyn
             mm2: fields[8].parse::<u32>().unwrap_or(0),
             mm3: fields[9].parse::<u32>().unwrap_or(0),
             chopchop_efficiency: fields[10].parse::<f64>().unwrap_or(0.0),
-            expression_score: None,
-            conservation_score: None,
-            snp_score: None,
-            regulatory_score: None,
-            protein_domain_score: None,
-            paralog_score: None,
-            custom_biological_score: None,
-            score_breakdown: None,
-            final_score: None,
-            overlapping_exons: vec![],
-            overlapping_snps: vec![],
-            overlapping_protein_domains: vec![],
-            binding_paralogs: vec![],
-            covered_transcripts: 0,
-            total_transcripts: 0,
         };
         guides.push(guide);
     }
