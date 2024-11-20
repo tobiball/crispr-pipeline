@@ -7,14 +7,17 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Working expression scores">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Match avana and chopchop grna at exact genomic location">
+      <change afterPath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/validator/src/prediction_tools/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/validator/src/tool_evluation.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/crispr_pipeline.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/crispr_pipeline.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/chopchop_integration.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/exon_intron.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/gene_analysis.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sequence_retriever/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/models.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/snps.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/snps.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -65,8 +68,8 @@
     &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;score__whole__gene__results&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/mrcrispr/crispr_pipeline/chopchop&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;validator&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/mrcrispr/crispr_pipeline/validator/src/prediction_tools&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -82,16 +85,40 @@
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/validator/src/prediction_tools" />
       <recent name="$PROJECT_DIR$/chopchop" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/validator/src/prediction_tools" />
+      <recent name="$PROJECT_DIR$/validator/src/data_handling" />
+      <recent name="$PROJECT_DIR$/validator/src" />
+      <recent name="$PROJECT_DIR$/validator" />
       <recent name="$PROJECT_DIR$/sequence_retriever/src" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Cargo.Debug">
+    <configuration name="Debug" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="command" value="run" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs>
+        <env name="RUST_LOG" value="debug" />
+      </envs>
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="command" value="run" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$/sequence_retriever" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$/validator" />
       <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
@@ -106,6 +133,10 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <list>
+      <item itemvalue="Cargo.Run" />
+      <item itemvalue="Cargo.Debug" />
+    </list>
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$PROJECT_DIR$/../.cargo/bin" />
@@ -141,6 +172,8 @@
       <workItem from="1728548192982" duration="18699000" />
       <workItem from="1728629379802" duration="12465000" />
       <workItem from="1728644693806" duration="7469000" />
+      <workItem from="1732015349911" duration="14936000" />
+      <workItem from="1732108885333" duration="7433000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -262,7 +295,15 @@
       <option name="project" value="LOCAL" />
       <updated>1728645486866</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="Match avana and chopchop grna at exact genomic location">
+      <option name="closed" value="true" />
+      <created>1732015854011</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1732015854011</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -294,7 +335,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="score_whole_gene_results" />
+                        <option value="validator" />
                       </list>
                     </value>
                   </entry>
@@ -323,6 +364,7 @@
     <MESSAGE value="Grna scoring enhancements" />
     <MESSAGE value="Fix expression and improve scoring" />
     <MESSAGE value="Working expression scores" />
-    <option name="LAST_COMMIT_MESSAGE" value="Working expression scores" />
+    <MESSAGE value="Match avana and chopchop grna at exact genomic location" />
+    <option name="LAST_COMMIT_MESSAGE" value="Match avana and chopchop grna at exact genomic location" />
   </component>
 </project>

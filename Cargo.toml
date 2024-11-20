@@ -1,2 +1,2 @@
 [workspace]
-members = ["sequence_retriever"]
+members = ["sequence_retriever", "validator"]
