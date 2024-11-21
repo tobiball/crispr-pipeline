@@ -7,17 +7,14 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Match avana and chopchop grna at exact genomic location">
-      <change afterPath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/validator/src/prediction_tools/mod.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/validator/src/tool_evluation.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/crispr_pipeline.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/crispr_pipeline.iml" afterDir="false" />
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Retrieve efficiency and configure modular structure">
+      <change afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/validator/src/helper_functions.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sequence_retriever/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sequence_retriever/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -65,6 +62,7 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;Cargo.Debug.executor&quot;: &quot;Run&quot;,
     &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
@@ -99,7 +97,7 @@
   <component name="RunManager" selected="Cargo.Debug">
     <configuration name="Debug" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="command" value="run" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$/validator" />
       <envs>
         <env name="RUST_LOG" value="debug" />
       </envs>
@@ -173,7 +171,8 @@
       <workItem from="1728629379802" duration="12465000" />
       <workItem from="1728644693806" duration="7469000" />
       <workItem from="1732015349911" duration="14936000" />
-      <workItem from="1732108885333" duration="7433000" />
+      <workItem from="1732108885333" duration="10449000" />
+      <workItem from="1732184056051" duration="8029000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -303,7 +302,15 @@
       <option name="project" value="LOCAL" />
       <updated>1732015854011</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="Retrieve efficiency and configure modular structure">
+      <option name="closed" value="true" />
+      <created>1732128656490</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1732128656490</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -365,6 +372,7 @@
     <MESSAGE value="Fix expression and improve scoring" />
     <MESSAGE value="Working expression scores" />
     <MESSAGE value="Match avana and chopchop grna at exact genomic location" />
-    <option name="LAST_COMMIT_MESSAGE" value="Match avana and chopchop grna at exact genomic location" />
+    <MESSAGE value="Retrieve efficiency and configure modular structure" />
+    <option name="LAST_COMMIT_MESSAGE" value="Retrieve efficiency and configure modular structure" />
   </component>
 </project>
