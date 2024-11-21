@@ -1,0 +1,11 @@
+[package]
+name = "validator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+polars = { version = "0.44.2", features = [ "csv", "lazy","strings"] }
+sequence_retriever = { path = "../sequence_retriever" }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+bio-seq = "0.13.5"
