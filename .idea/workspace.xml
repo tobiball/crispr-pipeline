@@ -7,14 +7,10 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Retrieve efficiency and configure modular structure">
-      <change afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/validator/src/helper_functions.rs" afterDir="false" />
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Modular split poc">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -172,7 +168,7 @@
       <workItem from="1728644693806" duration="7469000" />
       <workItem from="1732015349911" duration="14936000" />
       <workItem from="1732108885333" duration="10449000" />
-      <workItem from="1732184056051" duration="8029000" />
+      <workItem from="1732184056051" duration="10601000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -310,7 +306,15 @@
       <option name="project" value="LOCAL" />
       <updated>1732128656490</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="Modular split poc">
+      <option name="closed" value="true" />
+      <created>1732197054325</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1732197054325</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -373,6 +377,7 @@
     <MESSAGE value="Working expression scores" />
     <MESSAGE value="Match avana and chopchop grna at exact genomic location" />
     <MESSAGE value="Retrieve efficiency and configure modular structure" />
-    <option name="LAST_COMMIT_MESSAGE" value="Retrieve efficiency and configure modular structure" />
+    <MESSAGE value="Modular split poc" />
+    <option name="LAST_COMMIT_MESSAGE" value="Modular split poc" />
   </component>
 </project>

@@ -2,9 +2,9 @@ use std::fs;
 use polars::prelude::*;
 use std::path::PathBuf;
 use prediction_tools::chopchop_integration::{parse_chopchop_results, run_chopchop, ChopchopOptions};
-use data_handling::avana_depmap::get_df;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt, EnvFilter};
+use crate::data_handling::avana_depmap::{AvanaDataset, Dataset};
 use crate::helper_functions::read_csv;
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
 
@@ -30,7 +30,13 @@ fn main() -> PolarsResult<()> {
     info!("Starting the CRISPR pipeline");
 
 
-    let df = get_df()?.extract_dataframe();
+    let avana_dataset = AvanaDataset {
+        efficacy_path: "/home/mrcrispr/data/depmap/data/CRISPRInferredGuideEfficacy.csv".to_string(),
+        guide_map_path: "/home/mrcrispr/data/depmap/data/AvanaGuideMap.csv".to_string(),
+    };
+
+    let df = avana_dataset.load()?;
+
 
     run_chopchop_meta(df);
 
