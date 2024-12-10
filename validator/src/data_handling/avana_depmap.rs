@@ -1,17 +1,13 @@
 use polars::prelude::*;
 use tracing::{debug, error, info};
 use crate::helper_functions::read_csv;
-use crate::models::ValidationData;
+use crate::models::{Dataset, ValidationData};
 
 // Constants used in calculations
 const PLUS_STRAND_OFFSET: i32 = 16;
 const MINUS_STRAND_OFFSET: i32 = 5;
 
-/// Trait representing a dataset in the CRISPR pipeline.
-pub trait Dataset {
-    /// Loads and preprocesses the dataset, returning a DataFrame.
-    fn load(&self) -> PolarsResult<DataFrame>;
-}
+
 
 /// Struct for the Avana dataset.
 pub struct AvanaDataset {

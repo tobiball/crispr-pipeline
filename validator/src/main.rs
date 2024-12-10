@@ -4,8 +4,11 @@ use std::path::PathBuf;
 use prediction_tools::chopchop_integration::{parse_chopchop_results, run_chopchop, ChopchopOptions};
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt, EnvFilter};
-use crate::data_handling::avana_depmap::{AvanaDataset, Dataset};
+use crate::data_handling::avana_depmap::{AvanaDataset};
+use crate::data_handling::genome_crispr::{GenomeCrisprDatsets};
+
 use crate::helper_functions::read_csv;
+use crate::models::Dataset;
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
 
 mod tool_evluation;
@@ -29,12 +32,14 @@ fn main() -> PolarsResult<()> {
 
     info!("Starting the CRISPR pipeline");
 
-
-    let avana_dataset = AvanaDataset {
-        efficacy_path: "/home/mrcrispr/data/depmap/data/CRISPRInferredGuideEfficacy.csv".to_string(),
-        guide_map_path: "/home/mrcrispr/data/depmap/data/AvanaGuideMap.csv".to_string(),
+    let genomecrispr_datasets = GenomeCrisprDatsets {
+        path: "/home/mrcrispr/crispr_pipeline/data/genomecrispr/GenomeCRISPR_full05112017_brackets.csv".to_string(),
     };
-
+    let avana_dataset = AvanaDataset {
+        efficacy_path: "/home/mrcrispr/crispr_pipeline/data/depmap/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
+        guide_map_path: "/home/mrcrispr/crispr_pipeline/data/depmap/AvanaGuideMap_23Q4.csv".to_string(),
+    };
+    let df = genomecrispr_datasets.load()?;
     let df = avana_dataset.load()?;
 
 

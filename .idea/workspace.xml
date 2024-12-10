@@ -8,9 +8,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Modular split poc">
+      <change afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/crispr_pipeline.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/crispr_pipeline.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,7 +34,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="biogrid_integration" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -62,7 +68,7 @@
     &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;validator&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;genome__crispr&quot;,
     &quot;last_opened_file_path&quot;: &quot;/home/mrcrispr/crispr_pipeline/validator/src/prediction_tools&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -83,15 +89,16 @@
       <recent name="$PROJECT_DIR$/chopchop" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/validator/src/prediction_tools" />
       <recent name="$PROJECT_DIR$/validator/src/data_handling" />
       <recent name="$PROJECT_DIR$/validator/src" />
       <recent name="$PROJECT_DIR$/validator" />
-      <recent name="$PROJECT_DIR$/sequence_retriever/src" />
     </key>
   </component>
   <component name="RunManager" selected="Cargo.Debug">
     <configuration name="Debug" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="dev" />
       <option name="command" value="run" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$/validator" />
       <envs>
@@ -169,6 +176,7 @@
       <workItem from="1732015349911" duration="14936000" />
       <workItem from="1732108885333" duration="10449000" />
       <workItem from="1732184056051" duration="10601000" />
+      <workItem from="1733823038518" duration="6183000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />

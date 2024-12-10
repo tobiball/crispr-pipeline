@@ -1,4 +1,5 @@
 use bio_seq::{codec::dna::Dna};
+use polars::error::PolarsResult;
 use polars::frame::DataFrame;
 
 
@@ -44,4 +45,10 @@ impl ValidationData {
     pub fn extract_dataframe(self) -> DataFrame {
         match self { ValidationData::Avana(avana_dataset) => avana_dataset }
     }
+}
+
+/// Trait representing a dataset in the CRISPR pipeline.
+pub trait Dataset {
+    /// Loads and preprocesses the dataset, returning a DataFrame.
+    fn load(&self) -> PolarsResult<DataFrame>;
 }
