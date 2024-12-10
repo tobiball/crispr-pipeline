@@ -16,7 +16,7 @@ impl Dataset for GenomeCrisprDatsets {
         let df = match read_csv(&self.path) {
             Ok(df) => df,
             Err(e) => {
-                error!("Failed to read efficacy CSV: {}", e);
+                error!("Failed to read data CSV: {}", e);
                 return Err(e);
             }
         };
@@ -25,6 +25,22 @@ impl Dataset for GenomeCrisprDatsets {
         let total_guides = df.height();
 
         info!("Number of sgRNAs to check: {}", total_guides);
+
+        // Get the "name" column as a Series
+        let name_series = df.column("condition")?;
+
+        // Get the unique values in the "name" column
+        let unique_names = name_series.unique()?;
+
+
+        // If you need them as a Vec<String>, for example:
+        let unique_name_vec: Vec<String> = unique_names
+            .str()?
+            .into_no_null_iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        println!("Unique name vector: {:?}", unique_name_vec);
 
         // // Modify the DataFrame processing part to use two potential windows
         // let df = df_gene_guide_efficiencies
