@@ -1,7 +1,7 @@
 use polars::prelude::*;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 use crate::helper_functions::read_csv;
-use crate::models::{Dataset, ValidationData};
+use crate::models::Dataset;
 
 
 pub struct GenomeCrisprDatsets {

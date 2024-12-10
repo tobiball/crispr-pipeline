@@ -36,7 +36,7 @@ pub struct PredictionGuide {
 }
 
 pub enum PredictionTool {
-    CHOPCHOP
+    Chopchop
 }
 
 

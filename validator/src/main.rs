@@ -1,13 +1,9 @@
-use std::fs;
 use polars::prelude::*;
-use std::path::PathBuf;
-use prediction_tools::chopchop_integration::{parse_chopchop_results, run_chopchop, ChopchopOptions};
-use tracing::{debug, error, info};
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 use crate::data_handling::avana_depmap::{AvanaDataset};
 use crate::data_handling::genome_crispr::{GenomeCrisprDatsets};
 
-use crate::helper_functions::read_csv;
 use crate::models::Dataset;
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
 
@@ -39,11 +35,11 @@ fn main() -> PolarsResult<()> {
         efficacy_path: "/home/mrcrispr/crispr_pipeline/data/depmap/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
         guide_map_path: "/home/mrcrispr/crispr_pipeline/data/depmap/AvanaGuideMap_23Q4.csv".to_string(),
     };
-    let df = genomecrispr_datasets.load()?;
+    let _df = genomecrispr_datasets.load()?;
     let df = avana_dataset.load()?;
 
 
-    run_chopchop_meta(df);
+    run_chopchop_meta(df).expect("TODO: panic message");
 
 
 

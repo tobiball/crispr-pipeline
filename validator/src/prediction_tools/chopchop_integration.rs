@@ -86,7 +86,7 @@ pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>
             }
         };
 
-        let sequence_comparisons = guides.iter().enumerate().map(|(i, g)| {
+        let sequence_comparisons = guides.iter().enumerate().map(|(_i, g)| {
             let guide_seq = &g.sequence[..g.sequence.len()-3]; // Remove PAM
 
             if guide_seq == guide {
@@ -113,7 +113,7 @@ pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>
         if !sequence_comparisons.iter().any(|&x| x){
             error!("No sequence comparison found for {}", guide);
         }
-        counter = counter + 1.0;
+        counter += 1.0;
         debug!("Count {:}",counter);
         if  counter % 50.0 == 0.0  {
             info!("Progress {:.2}%", 100.0 * counter / df.height() as f64 );
