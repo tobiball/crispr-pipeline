@@ -8,3 +8,4 @@ polars = { version = "0.44.2", features = [ "csv", "lazy","strings"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 bio-seq = "0.13.5"
+csv = "1.3.1"

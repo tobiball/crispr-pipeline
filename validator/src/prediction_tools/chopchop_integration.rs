@@ -1,11 +1,11 @@
 use std::error::Error;
-use std::fs;
-use std::process::Command;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufRead, Write};
+use csv;
 use polars::datatypes::AnyValue;
-use polars::prelude::DataFrame;
+use polars::prelude::*;
 use tracing::{error, debug, info};
+use std::process::Command;
 
 #[derive(Debug)]
 pub struct ChopchopOptions {
@@ -21,27 +21,64 @@ pub struct ChopchopOptions {
     pub max_mismatches: u8,
 }
 
-pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>{
-    // Iterate over each row by index
+pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>> {
+    // Define the CSV output path
+    let output_csv_path = "/home/mrcrispr/crispr_pipeline/validator/chopchop_dataset_results.csv";
+    debug!("CSV will be written to: {}", output_csv_path);
+
+    // Create a CSV writer
+    let mut wtr = csv::Writer::from_path(output_csv_path)?;
+    debug!("CSV Writer initialized successfully.");
+
+    // Write the header row
+    wtr.write_record(&["chromosome", "start", "end", "position", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])?;
+    debug!("CSV header written.");
+
+    let total_rows = df.height();
+    info!("Total number of sgRNAs to process: {}", total_rows);
+
     let mut counter: f64 = 0.0;
     for i in 0..df.height() {
-        // Retrieve the `i`th element from each Series
+        debug!("Processing row {}", i);
+
+        // Extract data from DataFrame
         let chromosome = df.column("chromosome")?.get(i)?.to_string().replace('"', "");
-        let start = df.column("start")?.get(i)?;
-        let end = df.column("end")?.get(i)?;
+        let start = match df.column("start")?.get(i)? {
+            AnyValue::Int64(s) => s,
+            other => {
+                error!("Unexpected type for start at row {}: {:?}", i, other);
+                continue;
+            }
+        };
+        let end = match df.column("end")?.get(i)? {
+            AnyValue::Int64(e) => e,
+            other => {
+                error!("Unexpected type for end at row {}: {:?}", i, other);
+                continue;
+            }
+        };
         let position = match df.column("position")?.get(i)? {
             AnyValue::Int64(p) => p,
-            _ => {
-                error!("Expected Int64 value for position at row {}", i);
-                panic!("Invalid position type");
+            other => {
+                error!("Expected Int64 value for position at row {}, found {:?}", i, other);
+                continue;
             }
         };
         let raw_guide = df.column("sgRNA")?.get(i)?.to_string();
         let guide = raw_guide.trim_matches('"');
-        let efficacy: f64 = df.column("Efficacy")?.get(i)?.try_extract()?;
+        let efficacy: f64 = match df.column("Efficacy")?.get(i)? {
+            AnyValue::Float64(eff) => eff,
+            other => {
+                error!("Unexpected type for Efficacy at row {}: {:?}", i, other);
+                continue;
+            }
+        };
         let efficacy_scaled = efficacy * 100.0;
 
-
+        debug!(
+            "Row {}: chromosome={}, start={}, end={}, position={}, sgRNA={}, efficacy_scaled={}",
+            i, chromosome, start, end, position, guide, efficacy_scaled
+        );
 
         // Build the target region in the format "chr:start-end"
         let target_region = format!("{}:{}-{}", chromosome, start, end);
@@ -55,14 +92,12 @@ pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>
             continue;
         }
 
-
-
         // Set up CHOPCHOP options
         let chopchop_options = ChopchopOptions {
             python_executable: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop_env/bin/python2.7".to_string(),
             chopchop_script: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop.py".to_string(),
             genome: "hg38".to_string(),
-            target_type: "REGION".to_string(), // Changed to 'REGION' to specify genomic coordinates
+            target_type: "REGION".to_string(),
             target: target_region.clone(),
             output_dir: output_dir.clone(),
             pam_sequence: "NGG".to_string(),
@@ -86,10 +121,18 @@ pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>
             }
         };
 
-        let sequence_comparisons = guides.iter().enumerate().map(|(i, g)| {
+        debug!("Parsed {} GuideRNA entries from CHOPCHOP results for row {}", guides.len(), i);
+
+        let mut matched = false;
+        for g in &guides {
+            if g.sequence.len() < 3 {
+                debug!("Guide sequence too short for PAM removal: {}", g.sequence);
+                continue;
+            }
             let guide_seq = &g.sequence[..g.sequence.len()-3]; // Remove PAM
 
             if guide_seq == guide {
+                debug!("Match found for guide: {}", guide_seq);
                 let distance = position - g.start as i64;
                 debug!("Matching guide found: {} with distance {}", guide_seq, distance);
 
@@ -100,28 +143,51 @@ pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>
                         if g.strand == '+' { 16 } else { 5 },
                         distance
                     );
-                    panic!("Distance does not match expected offset");
+                    // Instead of panic!, continue processing other guides
+                    continue;
                 }
-                debug!("Tool: {:}", g.efficiency);
-                debug!("Dataset: {:}", efficacy_scaled);
-                debug!("Difference Tool vs Dataset {:}", g.efficiency - efficacy_scaled);
+
+                debug!("Tool Efficiency: {}", g.efficiency);
+                debug!("Dataset Efficacy: {}", efficacy_scaled);
+                debug!("Difference (Tool vs Dataset): {}", g.efficiency - efficacy_scaled);
+
+                // Write to CSV
+                wtr.write_record(&[
+                    chromosome.clone(),
+                    start.to_string(),
+                    end.to_string(),
+                    position.to_string(),
+                    g.sequence.to_string(),
+                    efficacy_scaled.to_string(),
+                    g.efficiency.to_string(),
+                    (g.efficiency - efficacy_scaled).to_string(),
+                ])?;
+                wtr.flush()?;
+                debug!("Record written to CSV for guide: {}", guide_seq);
+
+                matched = true;
+                break; // Assuming one match per sgRNA is sufficient
             }
-
-            guide_seq == guide
-        }).collect::<Vec<bool>>();
-
-        if !sequence_comparisons.iter().any(|&x| x){
-            error!("No sequence comparison found for {}", guide);
         }
-        counter = counter + 1.0;
-        debug!("Count {:}",counter);
-        if  counter % 50.0 == 0.0  {
-            info!("Progress {:.2}%", 100.0 * counter / df.height() as f64 );
-        };
 
+        if !matched {
+            error!("No matching guide found for sgRNA: {}", guide);
+        }
+
+        counter += 1.0;
+        debug!("Count {}", counter);
+        if counter % 50.0 == 0.0 {
+            info!("Progress {:.2}%", 100.0 * counter / total_rows as f64);
+        }
     }
+
+    // Flush the CSV writer to ensure all data is written to disk
+    wtr.flush()?;
+    debug!("CSV Writer flushed successfully.");
+
     Ok(())
 }
+
 
 pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
     debug!("Executing CHOPCHOP for target: {}", options.target);
