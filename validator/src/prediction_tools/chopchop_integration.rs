@@ -6,6 +6,8 @@ use polars::datatypes::AnyValue;
 use polars::prelude::*;
 use tracing::{error, debug, info};
 use std::process::Command;
+use std::env;
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct ChopchopOptions {
@@ -83,29 +85,40 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
         // Build the target region in the format "chr:start-end"
         let target_region = format!("{}:{}-{}", chromosome, start, end);
 
-        // Define the output directory for this target
-        let output_dir = format!("./validator/output/{}/{}", chromosome, i);
+        let base_output_dir = "./validator/output";
 
-        // Ensure the output directory exists
-        if let Err(e) = fs::create_dir_all(&output_dir) {
-            error!("Failed to create directory {}: {}", output_dir, e);
-            continue;
+        // Ensure base directory exists
+        if let Err(e) = fs::create_dir_all(base_output_dir) {
+            error!("Failed to create base output directory {}: {}", base_output_dir, e);
+            return Err(Box::new(e));
         }
+        debug!("Base output directory ensured: {}", base_output_dir);
 
-        // Set up CHOPCHOP options
+        // Define the target directory
+        let output_dir = format!("{}/{}/{}", base_output_dir, chromosome, i);
+
+        // Ensure the target directory exists
+        if let Err(e) = fs::create_dir_all(&output_dir) {
+            error!("Failed to create output directory {}: {}", output_dir.clone(), e);
+            continue; // Skip to the next target
+        }
+        debug!("Output directory created: {}", output_dir);
+
+
+        let current_dir = env::current_dir()?;
+        let chopchop_base_path = current_dir.join("chopchop");
         let chopchop_options = ChopchopOptions {
-            python_executable: "./chopchop/chopchop_env/bin/python2.7".to_string(),
-            chopchop_script: "./chopchop/chopchop.py".to_string(),
+            python_executable: chopchop_base_path.join("chopchop_env/bin/python2.7").to_str().unwrap().to_string(),
+            chopchop_script: chopchop_base_path.join("chopchop.py").to_str().unwrap().to_string(),
             genome: "hg38".to_string(),
             target_type: "REGION".to_string(),
             target: target_region.clone(),
-            output_dir: output_dir.clone(),
+            output_dir: current_dir.join(output_dir.clone()).to_str().unwrap().to_string(),
             pam_sequence: "NGG".to_string(),
             guide_length: 20,
             scoring_method: "DOENCH_2016".to_string(),
             max_mismatches: 3,
         };
-
         debug!("Running CHOPCHOP with options: {:?}", chopchop_options);
 
         if let Err(e) = run_chopchop(&chopchop_options) {
