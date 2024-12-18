@@ -23,7 +23,7 @@ pub struct ChopchopOptions {
 
 pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>> {
     // Define the CSV output path
-    let output_csv_path = "/home/mrcrispr/crispr_pipeline/validator/chopchop_dataset_results.csv";
+    let output_csv_path = "./validator/chopchop_dataset_results.csv";
     debug!("CSV will be written to: {}", output_csv_path);
 
     // Create a CSV writer
