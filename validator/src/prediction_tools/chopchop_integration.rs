@@ -7,7 +7,6 @@ use polars::prelude::*;
 use tracing::{error, debug, info};
 use std::process::Command;
 use std::env;
-use std::path::Path;
 
 #[derive(Debug)]
 pub struct ChopchopOptions {
@@ -33,7 +32,7 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
     debug!("CSV Writer initialized successfully.");
 
     // Write the header row
-    wtr.write_record(&["chromosome", "start", "end", "position", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])?;
+    wtr.write_record(["chromosome", "start", "end", "position", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])?;
     debug!("CSV header written.");
 
     let total_rows = df.height();

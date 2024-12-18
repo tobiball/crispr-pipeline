@@ -7,10 +7,9 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Modular split poc">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="fix out path">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,7 +27,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="avana_chopchop_comparison" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -62,7 +61,7 @@
     &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;validator&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;avana__chopchop__comparison&quot;,
     &quot;last_opened_file_path&quot;: &quot;/home/mrcrispr/crispr_pipeline/validator/src/prediction_tools&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -314,7 +313,15 @@
       <option name="project" value="LOCAL" />
       <updated>1732197054325</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="fix out path">
+      <option name="closed" value="true" />
+      <created>1734527675406</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1734527675406</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -378,6 +385,7 @@
     <MESSAGE value="Match avana and chopchop grna at exact genomic location" />
     <MESSAGE value="Retrieve efficiency and configure modular structure" />
     <MESSAGE value="Modular split poc" />
-    <option name="LAST_COMMIT_MESSAGE" value="Modular split poc" />
+    <MESSAGE value="fix out path" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix out path" />
   </component>
 </project>
