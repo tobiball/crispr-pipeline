@@ -84,7 +84,7 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
         let target_region = format!("{}:{}-{}", chromosome, start, end);
 
         // Define the output directory for this target
-        let output_dir = format!("/home/mrcrispr/crispr_pipeline/validator/output/{}/{}", chromosome, i);
+        let output_dir = format!("./validator/output/{}/{}", chromosome, i);
 
         // Ensure the output directory exists
         if let Err(e) = fs::create_dir_all(&output_dir) {
@@ -94,8 +94,8 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
 
         // Set up CHOPCHOP options
         let chopchop_options = ChopchopOptions {
-            python_executable: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop_env/bin/python2.7".to_string(),
-            chopchop_script: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop.py".to_string(),
+            python_executable: "./chopchop/chopchop_env/bin/python2.7".to_string(),
+            chopchop_script: "./chopchop/chopchop.py".to_string(),
             genome: "hg38".to_string(),
             target_type: "REGION".to_string(),
             target: target_region.clone(),

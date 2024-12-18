@@ -16,3 +16,4 @@ chopchop/hg38.2bit
 chopchop/hg38.fa
 chopchop/hg38.gene_table
 validator/output
+venv/
