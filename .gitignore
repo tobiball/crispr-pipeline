@@ -1,5 +1,5 @@
-target/
-*.lock
+/target/
+/*.lock
 .idea/
 /chopchop/config.json
 /chopchop/gene_table.csv

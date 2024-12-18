@@ -31,8 +31,8 @@ fn main() -> PolarsResult<()> {
 
 
     let avana_dataset = AvanaDataset {
-        efficacy_path: "/home/mrcrispr/data/depmap/data/CRISPRInferredGuideEfficacy.csv".to_string(),
-        guide_map_path: "/home/mrcrispr/data/depmap/data/AvanaGuideMap.csv".to_string(),
+        efficacy_path: "./data/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
+        guide_map_path: "./data/AvanaGuideMap_23Q4.csv".to_string(),
     };
 
     let df = avana_dataset.load()?;
