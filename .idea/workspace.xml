@@ -7,9 +7,9 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="fix out path">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="clippy fix">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -168,6 +168,7 @@
       <workItem from="1732015349911" duration="14936000" />
       <workItem from="1732108885333" duration="10449000" />
       <workItem from="1732184056051" duration="10601000" />
+      <workItem from="1736168815682" duration="656000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -321,7 +322,23 @@
       <option name="project" value="LOCAL" />
       <updated>1734527675406</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="use relative paths">
+      <option name="closed" value="true" />
+      <created>1734529714457</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1734529714457</updated>
+    </task>
+    <task id="LOCAL-00021" summary="clippy fix">
+      <option name="closed" value="true" />
+      <created>1734529891401</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1734529891401</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -386,6 +403,8 @@
     <MESSAGE value="Retrieve efficiency and configure modular structure" />
     <MESSAGE value="Modular split poc" />
     <MESSAGE value="fix out path" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix out path" />
+    <MESSAGE value="use relative paths" />
+    <MESSAGE value="clippy fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="clippy fix" />
   </component>
 </project>
