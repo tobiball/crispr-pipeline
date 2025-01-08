@@ -41,7 +41,7 @@ fn main() -> PolarsResult<()> {
 
     let cegs = cegs.load();
     let _df_gc = genomecrispr_datasets.load()?;
-    let df = avana_dataset.load()?;
+    // let df = avana_dataset.load()?;
 
 
     // run_chopchop_meta(df).expect("TODO: panic message");
