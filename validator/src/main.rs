@@ -2,6 +2,7 @@ use polars::prelude::*;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 use crate::data_handling::avana_depmap::{AvanaDataset, Dataset};
+use crate::helper_functions::{project_root, write_config_json};
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
 
 mod tool_evluation;
@@ -25,6 +26,12 @@ fn main() -> PolarsResult<()> {
 
     info!("Starting the CRISPR pipeline");
 
+    let binding = project_root();
+    let project_root = binding.to_str().unwrap();
+    write_config_json(project_root).map_err(|e| PolarsError::ComputeError(format!("{}", e).into()))?;
+
+
+
 
     let avana_dataset = AvanaDataset {
         efficacy_path: "./data/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
@@ -34,7 +41,7 @@ fn main() -> PolarsResult<()> {
     let df = avana_dataset.load()?;
 
 
-    run_chopchop_meta(df);
+    run_chopchop_meta(df).expect("TODO: panic message");
 
 
 

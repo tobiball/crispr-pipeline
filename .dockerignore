@@ -1,0 +1,14 @@
+# Exclude data directories
+###
+# Exclude target directories (Rust build artifacts)
+target/
+
+# Exclude Git metadata
+.git/
+
+# Exclude local environments
+chopchop_env/
+
+# Exclude other unnecessary files
+*.log
+*.tmp

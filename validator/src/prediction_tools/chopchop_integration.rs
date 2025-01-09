@@ -1,3 +1,4 @@
+
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{BufRead, Write};
@@ -7,6 +8,7 @@ use polars::prelude::*;
 use tracing::{error, debug, info};
 use std::process::Command;
 use std::env;
+use crate::helper_functions::*;
 
 #[derive(Debug)]
 pub struct ChopchopOptions {
@@ -94,21 +96,32 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
         debug!("Base output directory ensured: {}", base_output_dir);
 
         // Define the target directory
-        let output_dir = format!("{}/{}/{}", base_output_dir, chromosome, i);
+        let output_dir = fs::canonicalize(format!("{}/{}/{}", base_output_dir, chromosome, i))?;
+
 
         // Ensure the target directory exists
         if let Err(e) = fs::create_dir_all(&output_dir) {
-            error!("Failed to create output directory {}: {}", output_dir.clone(), e);
+            error!("Failed to create output directory {}: {}", output_dir.clone().display(), e);
             continue; // Skip to the next target
         }
-        debug!("Output directory created: {}", output_dir);
+        debug!("Output directory created: {}", output_dir.display());
 
 
+        let chopchop_base_path = project_root().join("chopchop");
         let current_dir = env::current_dir()?;
-        let chopchop_base_path = current_dir.join("chopchop");
+
+        // Then define your Python script paths dynamically
         let chopchop_options = ChopchopOptions {
-            python_executable: chopchop_base_path.join("chopchop_env/bin/python2.7").to_str().unwrap().to_string(),
-            chopchop_script: chopchop_base_path.join("chopchop.py").to_str().unwrap().to_string(),
+            python_executable: project_root()
+                .join("chopchop/chopchop_env/bin/python2.7")
+                .to_str()
+                .unwrap()
+                .to_string(),
+            chopchop_script: project_root()
+                .join("chopchop/chopchop.py")
+                .to_str()
+                .unwrap()
+                .to_string(),
             genome: "hg38".to_string(),
             target_type: "REGION".to_string(),
             target: target_region.clone(),
@@ -125,10 +138,10 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
             continue; // Continue with the next iteration
         }
 
-        let guides = match parse_chopchop_results(&output_dir) {
+        let guides = match parse_chopchop_results(&output_dir.to_str().unwrap_or("output set wrong")) {
             Ok(guides) => guides,
             Err(e) => {
-                error!("Failed to parse CHOPCHOP results in {}: {}", output_dir, e);
+                error!("Failed to parse CHOPCHOP results in {}: {}", output_dir.display(), e);
                 continue;
             }
         };
