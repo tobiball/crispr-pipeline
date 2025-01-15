@@ -7,8 +7,9 @@ target/
 .git/
 
 # Exclude local environments
-chopchop_env/
+chopchop/chopchop_env/
 
 # Exclude other unnecessary files
-*.log
+*.logif (args.scoringMethod == "DOENCH_2016" or ar
 *.tmp
+chopchop/config.json

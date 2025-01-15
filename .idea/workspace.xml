@@ -8,12 +8,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Comment out unused">
-      <change afterPath="$PROJECT_DIR$/.dockerignore" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.dockerignore" beforeDir="false" afterPath="$PROJECT_DIR$/.dockerignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/helper_functions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/helper_functions.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/chopchop/chopchop.py" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/chopchop.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -176,6 +174,7 @@
       <workItem from="1736168815682" duration="656000" />
       <workItem from="1736415797560" duration="382000" />
       <workItem from="1736419342422" duration="7855000" />
+      <workItem from="1736847512382" duration="14385000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />

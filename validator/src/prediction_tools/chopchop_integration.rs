@@ -239,6 +239,10 @@ pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
         .current_dir(&options.output_dir) // Set to output directory
         .output()?; // Collect output
 
+    println!("Diag test exited with status: {:?}", output.status);
+    println!("Diag test stdout: {}", String::from_utf8_lossy(&output.stdout));
+    println!("Diag test stderr: {}", String::from_utf8_lossy(&output.stderr));
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         error!("CHOPCHOP STDERR: {}", stderr);
