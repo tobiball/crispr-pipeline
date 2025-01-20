@@ -7,8 +7,11 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Small fixes">
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Resolve merge issues">
+      <change afterPath="$PROJECT_DIR$/chopchop/requirements.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/cegv2.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -359,7 +362,15 @@
       <option name="project" value="LOCAL" />
       <updated>1736936663081</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="Resolve merge issues">
+      <option name="closed" value="true" />
+      <created>1737380529384</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1737380529384</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -386,12 +397,17 @@
         <entry key="MAIN">
           <value>
             <State>
+              <option name="COLUMN_ID_WIDTH">
+                <map>
+                  <entry key="Table.GitHub.CommitStatus.ColumnIdWidth" value="34" />
+                </map>
+              </option>
               <option name="FILTERS">
                 <map>
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="validator" />
+                        <option value="genome_crispr" />
                       </list>
                     </value>
                   </entry>
@@ -429,6 +445,7 @@
     <MESSAGE value="Comment out unused" />
     <MESSAGE value="Working Docker chopchop avana run" />
     <MESSAGE value="Small fixes" />
-    <option name="LAST_COMMIT_MESSAGE" value="Small fixes" />
+    <MESSAGE value="Resolve merge issues" />
+    <option name="LAST_COMMIT_MESSAGE" value="Resolve merge issues" />
   </component>
 </project>
