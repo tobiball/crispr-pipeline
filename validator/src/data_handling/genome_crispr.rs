@@ -1,7 +1,6 @@
 use polars::prelude::*;
 use tracing::{error, info};
 use crate::helper_functions::read_csv;
-use crate::models::Dataset;
 use anyhow::Error;
 
 
@@ -10,7 +9,7 @@ pub struct GenomeCrisprDatsets {
 }
 
 use polars::prelude::*;
-
+use crate::models::Dataset;
 
 impl Dataset for GenomeCrisprDatsets {
     fn load(&self) -> PolarsResult<DataFrame> {

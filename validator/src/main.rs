@@ -6,6 +6,7 @@ use crate::data_handling::genome_crispr::GenomeCrisprDatsets;
 
 use crate::data_handling::avana_depmap::{AvanaDataset};
 use crate::helper_functions::{project_root, write_config_json};
+use crate::models::Dataset;
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
 
 mod tool_evluation;
@@ -49,7 +50,7 @@ fn main() -> PolarsResult<()> {
 
     let cegs = cegs.load();
     let _df_gc = genomecrispr_datasets.load()?;
-    // let df = avana_dataset.load()?;
+    let df = avana_dataset.load()?;
 
 
     run_chopchop_meta(df).expect("TODO: panic message");

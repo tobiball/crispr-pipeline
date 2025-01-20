@@ -8,51 +8,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Small fixes">
-      <change afterPath="$PROJECT_DIR$/.dockerignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/AvanaGuideMap_23Q4.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/CRISPRInferredGuideEfficacy_23Q4.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/bowtie/LICENSE" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/bowtie/LICENSE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/chopchop.py" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/chopchop.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/293T_HiSeq_SP_Nuclease_100_SVM_Model.txt" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/293T_HiSeq_SP_Nuclease_100_SVM_Model.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/293T_HiSeq_ST1_Nuclease_100_V2_SVM_Model.txt" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/293T_HiSeq_ST1_Nuclease_100_V2_SVM_Model.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/Doench_2016_18.01_model_full.pickle" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/Doench_2016_18.01_model_full.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/Doench_2016_18.01_model_nopos.pickle" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/Doench_2016_18.01_model_nopos.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/Hg19_RefFlat_Genes_75bp_NoUTRs_SPSites_SVMOutput.txt" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/Hg19_RefFlat_Genes_75bp_NoUTRs_SPSites_SVMOutput.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/Hg19_RefFlat_Genes_75bp_NoUTRs_ST1Sites_SVMOutput.txt" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/Hg19_RefFlat_Genes_75bp_NoUTRs_ST1Sites_SVMOutput.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/Mm10_RefFlat_Genes_75bp_NoUTRs_SPSites_SVMOutput.txt" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/Mm10_RefFlat_Genes_75bp_NoUTRs_SPSites_SVMOutput.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/Mm10_RefFlat_Genes_75bp_NoUTRs_ST1Sites_SVMOutput.txt" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/Mm10_RefFlat_Genes_75bp_NoUTRs_ST1Sites_SVMOutput.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/Seq_deepCpf1_weights.h5" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/Seq_deepCpf1_weights.h5" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/LICENSE.txt" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/LICENSE.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/inDelphi.py" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/inDelphi.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_HCT116.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_HCT116.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_HEK293.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_HEK293.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_K562.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_K562.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_U2OS.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_U2OS.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_mESC.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/Normalizer_mESC.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/aax_aag_nn.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/aax_aag_nn.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/aax_aag_nn2.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/aax_aag_nn2.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_HCT116.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_HCT116.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_HEK293.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_HEK293.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_K562.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_K562.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_U2OS.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_U2OS.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_mESC.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/bp_model_mESC.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_HCT116.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_HCT116.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_HEK293.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_HEK293.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_K562.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_K562.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_U2OS.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_U2OS.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_mESC.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/models/inDelphi-model/model-sklearn-0.18.1/rate_model_mESC.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chopchop/refGene.txt" beforeDir="false" afterPath="$PROJECT_DIR$/chopchop/refGene.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/helper_functions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/helper_functions.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -70,7 +26,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="avana_chopchop_comparison" />
+        <entry key="$PROJECT_DIR$" value="main" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -104,7 +60,7 @@
     "Cargo.Run.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "Merging genome__crispr",
+    "git-widget-placeholder": "genome__crispr",
     "last_opened_file_path": "/home/mrcrispr/crispr_pipeline/validator/src/prediction_tools",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
