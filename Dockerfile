@@ -1,6 +1,6 @@
 # Dockerfile
 # Use a Debian 12 (Bookworm)-based Rust image
-FROM rust:1.83-slim
+FROM rust:1.83-slim AS builder
 
 # 1) Install build dependencies and OpenSSL dev libs
 RUN apt-get update && apt-get install -y \
@@ -11,10 +11,9 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libcurl4 \
     libbz2-dev \
+    virtualenv \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
-
-
 
 # 2) Download and build Python 2.7.18 from source
 WORKDIR /tmp
@@ -27,7 +26,7 @@ RUN wget https://www.python.org/ftp/python/2.7.18/Python-2.7.18.tgz && \
         --enable-unicode=ucs4 \
         --with-ensurepip=install \
         --with-openssl && \
-    make -j4 && make install && \
+    make -j$(nproc) && make install && \
     cd .. && rm -rf Python-2.7.18*
 
 # 3) Make sure the system knows about /usr/local/lib
@@ -58,9 +57,14 @@ RUN rm -rf ./chopchop/chopchop_env && \
     ./chopchop/chopchop_env/bin/pip install --upgrade pip && \
     ./chopchop/chopchop_env/bin/pip install -r requirements.txt
 
-# 9) Build the Rust workspace
+# 9) Build the Rust workspace in debug mode
 RUN cargo build --workspace
-# (Or cargo build --release --workspace if you prefer)
 
-# 10) Default entrypoint
+# 10) Set the RUST_LOG environment variable to debug
+ENV RUST_LOG=debug
+
+# 11) Set environment variable for tracing subscriber (optional, if needed)
+# ENV TRACING_SUBSCRIBER=fmt
+
+# 12) Default entrypoint
 ENTRYPOINT ["./target/debug/validator"]
