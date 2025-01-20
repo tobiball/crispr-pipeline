@@ -1,5 +1,5 @@
-target/
-*.lock
+/target/
+/*.lock
 .idea/
 /chopchop/config.json
 /chopchop/gene_table.csv
@@ -16,5 +16,5 @@ chopchop/hg38.2bit
 chopchop/hg38.fa
 chopchop/hg38.gene_table
 validator/output
-/venv
-/data
+venv/
+*.pyc

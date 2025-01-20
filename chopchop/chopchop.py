@@ -3164,8 +3164,12 @@ def main():
                     j += 1
                     if args.scoringMethod == "DOENCH_2016":
                         guide.score -= (guide.CoefficientsScore["DOENCH_2016"] / 100) * SCORE['COEFFICIENTS']
-        except:
-            pass
+        except Exception as e:
+            import traceback
+            sys.stderr.write("[DEBUG] DOENCH_2016 scoring error:\n")
+            traceback.print_exc()  # prints the detailed error
+            # or raise e if you want to crash
+
 
 
     if args.repairPredictions is not None and not ISOFORMS and args.MODE == CRISPR:

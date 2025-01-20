@@ -1,7 +1,9 @@
 use polars::prelude::*;
 use tracing::{debug, error, info};
 use crate::helper_functions::read_csv;
+use crate::models::ValidationData;
 use crate::models::Dataset;
+
 
 // Constants used in calculations
 const PLUS_STRAND_OFFSET: i32 = 16;

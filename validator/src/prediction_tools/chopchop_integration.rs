@@ -1,11 +1,14 @@
+
 use std::error::Error;
-use std::fs;
-use std::process::Command;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufRead, Write};
+use csv;
 use polars::datatypes::AnyValue;
-use polars::prelude::DataFrame;
+use polars::prelude::*;
 use tracing::{error, debug, info};
+use std::process::Command;
+use std::env;
+use crate::helper_functions::*;
 
 #[derive(Debug)]
 pub struct ChopchopOptions {
@@ -21,56 +24,113 @@ pub struct ChopchopOptions {
     pub max_mismatches: u8,
 }
 
-pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>{
-    // Iterate over each row by index
+pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>> {
+    // Define the CSV output path
+    let output_csv_path = "./validator/chopchop_dataset_results.csv";
+    debug!("CSV will be written to: {}", output_csv_path);
+
+    // Create a CSV writer
+    let mut wtr = csv::Writer::from_path(output_csv_path)?;
+    debug!("CSV Writer initialized successfully.");
+
+    // Write the header row
+    wtr.write_record(["chromosome", "start", "end", "position", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])?;
+    debug!("CSV header written.");
+
+    let total_rows = df.height();
+    info!("Total number of sgRNAs to process: {}", total_rows);
+
     let mut counter: f64 = 0.0;
     for i in 0..df.height() {
-        // Retrieve the `i`th element from each Series
+        debug!("Processing row {}", i);
+
+        // Extract data from DataFrame
         let chromosome = df.column("chromosome")?.get(i)?.to_string().replace('"', "");
-        let start = df.column("start")?.get(i)?;
-        let end = df.column("end")?.get(i)?;
+        let start = match df.column("start")?.get(i)? {
+            AnyValue::Int64(s) => s,
+            other => {
+                error!("Unexpected type for start at row {}: {:?}", i, other);
+                continue;
+            }
+        };
+        let end = match df.column("end")?.get(i)? {
+            AnyValue::Int64(e) => e,
+            other => {
+                error!("Unexpected type for end at row {}: {:?}", i, other);
+                continue;
+            }
+        };
         let position = match df.column("position")?.get(i)? {
             AnyValue::Int64(p) => p,
-            _ => {
-                error!("Expected Int64 value for position at row {}", i);
-                panic!("Invalid position type");
+            other => {
+                error!("Expected Int64 value for position at row {}, found {:?}", i, other);
+                continue;
             }
         };
         let raw_guide = df.column("sgRNA")?.get(i)?.to_string();
         let guide = raw_guide.trim_matches('"');
-        let efficacy: f64 = df.column("Efficacy")?.get(i)?.try_extract()?;
+        let efficacy: f64 = match df.column("Efficacy")?.get(i)? {
+            AnyValue::Float64(eff) => eff,
+            other => {
+                error!("Unexpected type for Efficacy at row {}: {:?}", i, other);
+                continue;
+            }
+        };
         let efficacy_scaled = efficacy * 100.0;
 
-
+        debug!(
+            "Row {}: chromosome={}, start={}, end={}, position={}, sgRNA={}, efficacy_scaled={}",
+            i, chromosome, start, end, position, guide, efficacy_scaled
+        );
 
         // Build the target region in the format "chr:start-end"
         let target_region = format!("{}:{}-{}", chromosome, start, end);
 
-        // Define the output directory for this target
-        let output_dir = format!("/home/mrcrispr/crispr_pipeline/validator/output/{}/{}", chromosome, i);
+        let base_output_dir = "./validator/output";
 
-        // Ensure the output directory exists
-        if let Err(e) = fs::create_dir_all(&output_dir) {
-            error!("Failed to create directory {}: {}", output_dir, e);
-            continue;
+        // Ensure base directory exists
+        if let Err(e) = fs::create_dir_all(base_output_dir) {
+            error!("Failed to create base output directory {}: {}", base_output_dir, e);
+            return Err(Box::new(e));
         }
+        debug!("Base output directory ensured: {}", base_output_dir);
+
+        // Define the target directory
+        let output_dir = fs::canonicalize(format!("{}/{}/{}", base_output_dir, chromosome, i))?;
 
 
+        // Ensure the target directory exists
+        if let Err(e) = fs::create_dir_all(&output_dir) {
+            error!("Failed to create output directory {}: {}", output_dir.clone().display(), e);
+            continue; // Skip to the next target
+        }
+        debug!("Output directory created: {}", output_dir.display());
 
-        // Set up CHOPCHOP options
+
+        let chopchop_base_path = project_root().join("chopchop");
+        let current_dir = env::current_dir()?;
+
+        // Then define your Python script paths dynamically
         let chopchop_options = ChopchopOptions {
-            python_executable: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop_env/bin/python2.7".to_string(),
-            chopchop_script: "/home/mrcrispr/crispr_pipeline/chopchop/chopchop.py".to_string(),
+            python_executable: project_root()
+                .join("chopchop/chopchop_env/bin/python2.7")
+                .to_str()
+                .unwrap()
+                .to_string(),
+            chopchop_script: project_root()
+                .join("chopchop/chopchop.py")
+                .to_str()
+                .unwrap()
+                .to_string(),
             genome: "hg38".to_string(),
-            target_type: "REGION".to_string(), // Changed to 'REGION' to specify genomic coordinates
+            target_type: "REGION".to_string(),
             target: target_region.clone(),
-            output_dir: output_dir.clone(),
+            output_dir: current_dir.join(output_dir.clone()).to_str().unwrap().to_string(),
             pam_sequence: "NGG".to_string(),
             guide_length: 20,
             scoring_method: "DOENCH_2016".to_string(),
             max_mismatches: 3,
         };
-
         debug!("Running CHOPCHOP with options: {:?}", chopchop_options);
 
         if let Err(e) = run_chopchop(&chopchop_options) {
@@ -78,18 +138,26 @@ pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>
             continue; // Continue with the next iteration
         }
 
-        let guides = match parse_chopchop_results(&output_dir) {
+        let guides = match parse_chopchop_results(&output_dir.to_str().unwrap_or("output set wrong")) {
             Ok(guides) => guides,
             Err(e) => {
-                error!("Failed to parse CHOPCHOP results in {}: {}", output_dir, e);
+                error!("Failed to parse CHOPCHOP results in {}: {}", output_dir.display(), e);
                 continue;
             }
         };
 
-        let sequence_comparisons = guides.iter().enumerate().map(|(_i, g)| {
+        debug!("Parsed {} GuideRNA entries from CHOPCHOP results for row {}", guides.len(), i);
+
+        let mut matched = false;
+        for g in &guides {
+            if g.sequence.len() < 3 {
+                debug!("Guide sequence too short for PAM removal: {}", g.sequence);
+                continue;
+            }
             let guide_seq = &g.sequence[..g.sequence.len()-3]; // Remove PAM
 
             if guide_seq == guide {
+                debug!("Match found for guide: {}", guide_seq);
                 let distance = position - g.start as i64;
                 debug!("Matching guide found: {} with distance {}", guide_seq, distance);
 
@@ -100,28 +168,51 @@ pub fn run_chopchop_meta(df:DataFrame) -> Result<(), Box<dyn std::error::Error>>
                         if g.strand == '+' { 16 } else { 5 },
                         distance
                     );
-                    panic!("Distance does not match expected offset");
+                    // Instead of panic!, continue processing other guides
+                    continue;
                 }
-                debug!("Tool: {:}", g.efficiency);
-                debug!("Dataset: {:}", efficacy_scaled);
-                debug!("Difference Tool vs Dataset {:}", g.efficiency - efficacy_scaled);
+
+                debug!("Tool Efficiency: {}", g.efficiency);
+                debug!("Dataset Efficacy: {}", efficacy_scaled);
+                debug!("Difference (Tool vs Dataset): {}", g.efficiency - efficacy_scaled);
+
+                // Write to CSV
+                wtr.write_record(&[
+                    chromosome.clone(),
+                    start.to_string(),
+                    end.to_string(),
+                    position.to_string(),
+                    g.sequence.to_string(),
+                    efficacy_scaled.to_string(),
+                    g.efficiency.to_string(),
+                    (g.efficiency - efficacy_scaled).to_string(),
+                ])?;
+                wtr.flush()?;
+                debug!("Record written to CSV for guide: {}", guide_seq);
+
+                matched = true;
+                break; // Assuming one match per sgRNA is sufficient
             }
-
-            guide_seq == guide
-        }).collect::<Vec<bool>>();
-
-        if !sequence_comparisons.iter().any(|&x| x){
-            error!("No sequence comparison found for {}", guide);
         }
-        counter += 1.0;
-        debug!("Count {:}",counter);
-        if  counter % 50.0 == 0.0  {
-            info!("Progress {:.2}%", 100.0 * counter / df.height() as f64 );
-        };
 
+        if !matched {
+            error!("No matching guide found for sgRNA: {}", guide);
+        }
+
+        counter += 1.0;
+        debug!("Count {}", counter);
+        if counter % 50.0 == 0.0 {
+            info!("Progress {:.2}%", 100.0 * counter / total_rows as f64);
+        }
     }
+
+    // Flush the CSV writer to ensure all data is written to disk
+    wtr.flush()?;
+    debug!("CSV Writer flushed successfully.");
+
     Ok(())
 }
+
 
 pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
     debug!("Executing CHOPCHOP for target: {}", options.target);
@@ -147,6 +238,10 @@ pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
         .arg("-P") // Primer design
         .current_dir(&options.output_dir) // Set to output directory
         .output()?; // Collect output
+
+    // println!("Diag test exited with status: {:?}", output.status);
+    // println!("Diag test stdout: {}", String::from_utf8_lossy(&output.stdout));
+    // println!("Diag test stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
