@@ -4,7 +4,7 @@ use tracing::info;
 use tracing_subscriber::EnvFilter;
 use crate::data_handling::genome_crispr::GenomeCrisprDatsets;
 
-use crate::data_handling::avana_depmap::{AvanaDataset, Dataset};
+use crate::data_handling::avana_depmap::{AvanaDataset};
 use crate::helper_functions::{project_root, write_config_json};
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
 
