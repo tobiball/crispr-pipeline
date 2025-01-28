@@ -12,6 +12,7 @@ pub struct Cegs {
 
 
 impl Dataset for Cegs {
+
     fn load(&self) -> PolarsResult<DataFrame> {
 
 
@@ -26,4 +27,10 @@ impl Dataset for Cegs {
 
 
         Ok(df)}
+
+    fn validate_columns(df: &DataFrame) -> PolarsResult<()> {
+        Ok(())
+    }
+
+
 }

@@ -16,6 +16,8 @@ pub struct AvanaDataset {
 }
 
 impl Dataset for AvanaDataset {
+
+
     fn load(&self) -> PolarsResult<DataFrame> {
         // Read the CSV files into DataFrames using the helper function
         let efficacy_path = &self.efficacy_path;
@@ -100,6 +102,10 @@ impl Dataset for AvanaDataset {
         debug!("DataFrame after processing: {:?}", df);
 
         Ok(df)
+    }
+
+    fn validate_columns(loaded_df: &DataFrame) -> PolarsResult<()> {
+        todo!()
     }
 }
 

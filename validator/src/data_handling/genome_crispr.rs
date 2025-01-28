@@ -19,8 +19,6 @@ fn create_sub_dataframe(df_original: DataFrame) -> PolarsResult<DataFrame> {
         .filter(
             col("condition").eq(lit("viability"))
                 .or(col("condition").eq(lit("viability after 36 days")))
-                .or(col("condition").eq(lit("viability after 21 days")))
-                .or(col("condition").eq(lit("viability after 25 days")))
         )
         .collect()?;
 
@@ -29,6 +27,7 @@ fn create_sub_dataframe(df_original: DataFrame) -> PolarsResult<DataFrame> {
 
 
 impl Dataset for GenomeCrisprDatsets {
+
     fn load(&self) -> PolarsResult<DataFrame> {
         info!("Reading data from {}", &self.path);
 
