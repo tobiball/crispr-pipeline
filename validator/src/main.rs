@@ -38,10 +38,11 @@ fn main() -> PolarsResult<()> {
 
 
     let cegs = Cegs {
-        path: "/home/mrcrispr/crispr_pipeline/data/cegv2.txt".to_string()
+        path: "./data/cegv2.txt".to_string()
     };
     let genomecrispr_datasets = GenomeCrisprDatsets {
-        path: "/home/mrcrispr/crispr_pipeline/data/genomecrispr/GenomeCRISPR_full05112017_brackets.csv".to_string(),
+        path: "./data/genomecrispr/GenomeCRISPR_full05112017_brackets.csv".to_string(),
+
     };
     let avana_dataset = AvanaDataset {
         efficacy_path: "./data/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
@@ -49,11 +50,14 @@ fn main() -> PolarsResult<()> {
     };
 
     let cegs = cegs.load();
-    let _df_gc = genomecrispr_datasets.load()?;
-    let df = avana_dataset.load()?;
+    // let _df_gc = genomecrispr_datasets.load()?;
+    // let df = avana_dataset.load()?;
 
 
-    run_chopchop_meta(df).expect("TODO: panic message");
+    // run_chopchop_meta(df).expect("TODO: panic message");
+
+    tool_evluation::analyze_chopchop_results("./data/chopchop_dataset_results.csv")?;
+
 
 
 
