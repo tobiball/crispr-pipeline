@@ -48,10 +48,11 @@ impl ValidationData {
 pub const REQUIRED_COLUMNS: &[&str] = &[
     "chromosome",
     "sgRNA",
-    "sequence",
     "position",
     "strand",
-    "efficiency_score",
+    "effect",
+    "start",
+    "end"
 ];
 
 

@@ -7,13 +7,14 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Preliminary analysis">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Implement df column checking trait">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/data_handling/cegs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/cegs.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/tool_evluation.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/tool_evluation.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -181,7 +182,8 @@
       <workItem from="1737371849120" duration="1595000" />
       <workItem from="1737443857921" duration="2845000" />
       <workItem from="1738057086783" duration="3167000" />
-      <workItem from="1738076172806" duration="7313000" />
+      <workItem from="1738076172806" duration="7374000" />
+      <workItem from="1738131999064" duration="6931000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -391,7 +393,15 @@
       <option name="project" value="LOCAL" />
       <updated>1738061019594</updated>
     </task>
-    <option name="localTasksCounter" value="27" />
+    <task id="LOCAL-00027" summary="Implement df column checking trait">
+      <option name="closed" value="true" />
+      <created>1738084403344</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1738084403344</updated>
+    </task>
+    <option name="localTasksCounter" value="28" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -444,7 +454,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/chopchop" />
     </ignored-roots>
-    <MESSAGE value="idea" />
     <MESSAGE value="Merge" />
     <MESSAGE value="Explore mutation proximity" />
     <MESSAGE value="Pull Gene info" />
@@ -469,6 +478,7 @@
     <MESSAGE value="Resolve merge issues" />
     <MESSAGE value="Commit and ignore data files" />
     <MESSAGE value="Preliminary analysis" />
-    <option name="LAST_COMMIT_MESSAGE" value="Preliminary analysis" />
+    <MESSAGE value="Implement df column checking trait" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement df column checking trait" />
   </component>
 </project>

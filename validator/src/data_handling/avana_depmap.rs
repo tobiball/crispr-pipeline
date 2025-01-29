@@ -104,8 +104,5 @@ impl Dataset for AvanaDataset {
         Ok(df)
     }
 
-    fn validate_columns(loaded_df: &DataFrame) -> PolarsResult<()> {
-        todo!()
-    }
 }
 

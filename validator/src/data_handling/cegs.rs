@@ -2,7 +2,6 @@ use polars::prelude::*;
 use std::fs::File;
 use polars::prelude::{CsvReadOptions, SerReader};
 use tracing::{error, info};
-use crate::data_handling::genome_crispr::GenomeCrisprDatsets;
 use crate::helper_functions::read_csv;
 use crate::models::Dataset;
 

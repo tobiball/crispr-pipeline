@@ -2,7 +2,7 @@ use crate::data_handling::cegs::Cegs;
 use polars::prelude::*;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
-use crate::data_handling::genome_crispr::GenomeCrisprDatsets;
+use crate::data_handling::genome_crispr::GenomeCrisprDatasets;
 
 use crate::data_handling::avana_depmap::{AvanaDataset};
 use crate::helper_functions::{project_root, write_config_json};
@@ -40,7 +40,7 @@ fn main() -> PolarsResult<()> {
     let cegs = Cegs {
         path: "./data/cegv2.txt".to_string()
     };
-    let genomecrispr_datasets = GenomeCrisprDatsets {
+    let genomecrispr_datasets = GenomeCrisprDatasets {
         path: "./data/genomecrispr/GenomeCRISPR_full05112017_brackets.csv".to_string(),
 
     };
@@ -51,7 +51,7 @@ fn main() -> PolarsResult<()> {
 
     // let cegs = cegs.load();
     let df_gc = genomecrispr_datasets.load_validated()?;
-    // let df = avana_dataset.load()?;
+    // let df = avana_dataset.load_validated()?;
 
     run_chopchop_meta(df_gc).expect("TODO: panic message");
 
