@@ -2,7 +2,7 @@ use polars::prelude::*;
 use std::fs::File;
 use polars::prelude::{CsvReadOptions, SerReader};
 use tracing::{error, info};
-use crate::helper_functions::read_csv;
+use crate::helper_functions::{read_csv, read_txt};
 use crate::models::Dataset;
 
 pub struct Cegs {
@@ -16,7 +16,7 @@ impl Dataset for Cegs {
 
 
         info!("Reading data from {}", &self.path);
-        let df = match read_csv(&self.path) {
+        let df = match read_txt(&self.path) {
             Ok(df) => df,
             Err(e) => {
                 error!("Failed to read ceg CSV: {}", e);
@@ -27,7 +27,7 @@ impl Dataset for Cegs {
 
         Ok(df)}
 
-    fn validate_columns(df: &DataFrame) -> PolarsResult<()> {
+    fn validate_columns(df: &DataFrame, dataset_name: &str) -> PolarsResult<()> {
         Ok(())
     }
 

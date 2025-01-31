@@ -1,7 +1,8 @@
+use tracing::{debug, error, info};
 use std::path::PathBuf;
 use polars::error::PolarsResult;
 use polars::frame::DataFrame;
-use polars::prelude::{CsvReadOptions, SerReader};
+use polars::prelude::{col, lit, CsvParseOptions, CsvReadOptions, IntoLazy, SerReader, Series};
 
 use std::env;
 pub fn project_root() -> PathBuf {
@@ -51,3 +52,24 @@ pub fn read_csv(file_path: &str) -> PolarsResult<DataFrame> {
         .try_into_reader_with_file_path(Some(PathBuf::from(file_path)))?
         .finish()
 }
+
+pub fn read_txt(file_path: &str) -> PolarsResult<DataFrame> {
+    info!("Reading txt file: {}", file_path);
+
+    let df_result = CsvReadOptions::default()
+        .with_has_header(true)
+        .map_parse_options(|opts| CsvParseOptions {
+            separator: b'\t', // Set delimiter to tab
+            ..opts
+        })
+        .try_into_reader_with_file_path(Some(PathBuf::from(file_path)))?
+        .finish();
+
+    match &df_result {
+        Ok(df) => debug!("Loaded txt with columns: {:?}", df.get_column_names()),
+        Err(e) => error!("Failed to read txt file: {}", e),
+    }
+
+    df_result
+}
+

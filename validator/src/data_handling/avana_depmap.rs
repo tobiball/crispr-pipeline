@@ -49,13 +49,16 @@ impl Dataset for AvanaDataset {
             ["sgRNA"],
             JoinArgs::from(JoinType::Inner),
         ) {
-            Ok(df) => df,
+            Ok(mut df) => {
+                // Rename "Efficacy" -> "effect" in the joined DataFrame (eager).
+                df.rename("Efficacy", "effect".into())?;
+                df
+            },
             Err(e) => {
                 error!("Failed to join DataFrames: {}", e);
                 return Err(e);
             }
         };
-
         let total_guides = df_gene_guide_efficiencies.height();
 
         info!("Number of sgRNAs to check: {}", total_guides);

@@ -49,9 +49,9 @@ fn main() -> PolarsResult<()> {
         guide_map_path: "./data/AvanaGuideMap_23Q4.csv".to_string(),
     };
 
-    // let cegs = cegs.load();
-    let df_gc = genomecrispr_datasets.load_validated()?;
-    // let df = avana_dataset.load_validated()?;
+    let cegs = cegs.load()?;
+    let df_gc = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
+    // let df = avana_dataset.load_validated("depmap")?;
 
     run_chopchop_meta(df_gc).expect("TODO: panic message");
 

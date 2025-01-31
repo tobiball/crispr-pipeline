@@ -26,7 +26,7 @@ pub struct ChopchopOptions {
 
 pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>> {
     // Define the CSV output path
-    let output_csv_path = "./validator/chopchop_dataset_results.csv";
+    let output_csv_path = "./validator/chopchop_dataset_gc_results.csv";
     debug!("CSV will be written to: {}", output_csv_path);
 
     // Create a CSV writer
@@ -34,7 +34,7 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
     debug!("CSV Writer initialized successfully.");
 
     // Write the header row
-    wtr.write_record(["chromosome", "start", "end", "position", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])?;
+    wtr.write_record(["chromosome", "start", "end", "guide", "dataset_effect", "chopchop_efficiency", "difference"])?;
     debug!("CSV header written.");
 
     let total_rows = df.height();
@@ -60,27 +60,21 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
                 continue;
             }
         };
-        let position = match df.column("position")?.get(i)? {
-            AnyValue::Int64(p) => p,
-            other => {
-                error!("Expected Int64 value for position at row {}, found {:?}", i, other);
-                continue;
-            }
-        };
+
         let raw_guide = df.column("sgRNA")?.get(i)?.to_string();
         let guide = raw_guide.trim_matches('"');
-        let efficacy: f64 = match df.column("Efficacy")?.get(i)? {
+        let effect: f64 = match df.column("effect")?.get(i)? {
             AnyValue::Float64(eff) => eff,
             other => {
-                error!("Unexpected type for Efficacy at row {}: {:?}", i, other);
+                error!("Unexpected type for effect at row {}: {:?}", i, other);
                 continue;
             }
         };
-        let efficacy_scaled = efficacy * 100.0;
+        let effect_scaled = effect * 100.0;
 
         debug!(
-            "Row {}: chromosome={}, start={}, end={}, position={}, sgRNA={}, efficacy_scaled={}",
-            i, chromosome, start, end, position, guide, efficacy_scaled
+            "Row {}: chromosome={}, start={}, end={}, sgRNA={}, effect_scaled={}",
+            i, chromosome, start, end, guide, effect_scaled
         );
 
         // Build the target region in the format "chr:start-end"
@@ -94,9 +88,20 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
             return Err(Box::new(e));
         }
         debug!("Base output directory ensured: {}", base_output_dir);
+        let path = format!("{}/{}/{}", base_output_dir, chromosome, i);
 
-        // Define the target directory
-        let output_dir = fs::canonicalize(format!("{}/{}/{}", base_output_dir, chromosome, i))?;
+        // 1) Create the directory if it doesn’t exist
+        fs::create_dir_all(&path).map_err(|e| {
+            error!("Failed to create output directory {}: {}", &path, e);
+            e
+        })?;
+
+        // 2) Now canonicalize (optional)
+        let output_dir = fs::canonicalize(&path)?;
+
+        // 3) Use `output_dir` below
+        debug!("Output directory created: {}", output_dir.display());
+
 
 
         // Ensure the target directory exists
@@ -150,42 +155,28 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
 
         let mut matched = false;
         for g in &guides {
-            if g.sequence.len() < 3 {
-                debug!("Guide sequence too short for PAM removal: {}", g.sequence);
-                continue;
+            let guide_seq =  if g.sequence.len() == guide.len() {
+                &g.sequence
             }
-            let guide_seq = &g.sequence[..g.sequence.len()-3]; // Remove PAM
+                else{ &g.sequence[..g.sequence.len() - 3]};
 
             if guide_seq == guide {
                 debug!("Match found for guide: {}", guide_seq);
-                let distance = position - g.start as i64;
-                debug!("Matching guide found: {} with distance {}", guide_seq, distance);
 
-                if (distance != 16 && g.strand == '+') || (distance != 5 && g.strand == '-') {
-                    error!(
-                        "Distance mismatch for guide {}: expected {}, got {}",
-                        guide,
-                        if g.strand == '+' { 16 } else { 5 },
-                        distance
-                    );
-                    // Instead of panic!, continue processing other guides
-                    continue;
-                }
 
                 debug!("Tool Efficiency: {}", g.efficiency);
-                debug!("Dataset Efficacy: {}", efficacy_scaled);
-                debug!("Difference (Tool vs Dataset): {}", g.efficiency - efficacy_scaled);
+                debug!("Dataset effect: {}", effect_scaled);
+                debug!("Difference (Tool vs Dataset): {}", g.efficiency - effect_scaled);
 
                 // Write to CSV
                 wtr.write_record(&[
                     chromosome.clone(),
                     start.to_string(),
                     end.to_string(),
-                    position.to_string(),
                     g.sequence.to_string(),
-                    efficacy_scaled.to_string(),
+                    effect_scaled.to_string(),
                     g.efficiency.to_string(),
-                    (g.efficiency - efficacy_scaled).to_string(),
+                    (g.efficiency - effect_scaled).to_string(),
                 ])?;
                 wtr.flush()?;
                 debug!("Record written to CSV for guide: {}", guide_seq);
@@ -251,7 +242,7 @@ pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
 
     // Write STDOUT to a file in the output directory
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let output_file_path = format!("{}/results.txt", options.output_dir);
+    let output_file_path = format!("{}/gc_results.txt", options.output_dir);
     let mut output_file = File::create(&output_file_path)?;
     output_file.write_all(stdout.as_bytes())?;
 
@@ -280,7 +271,7 @@ pub struct ChopchopGuide {
 }
 
 pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<ChopchopGuide>, Box<dyn Error>> {
-    let txt_results_path = format!("{}/results.txt", output_dir);
+    let txt_results_path = format!("{}/gc_results.txt", output_dir);
 
     if !std::path::Path::new(&txt_results_path).exists() {
         error!("CHOPCHOP results not found in {}", txt_results_path);
