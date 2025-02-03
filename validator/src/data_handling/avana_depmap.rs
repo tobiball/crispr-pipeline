@@ -1,4 +1,5 @@
 use polars::prelude::*;
+
 use tracing::{debug, error, info};
 use crate::helper_functions::read_csv;
 use crate::models::Dataset;
@@ -64,13 +65,19 @@ impl Dataset for AvanaDataset {
 
         info!("Number of sgRNAs to check: {}", total_guides);
 
+
+
+
         let pattern = r"\s*\([^)]*\)$";
-        let df_annot_clean = df_gene_guide_efficiencies.with_column(
-            col("Gene")
-                .str()
-                .replace(pattern, "", true) // 'true' => literal=false means regex usage
-                .alias("Gene_clean")
-        )?;
+        let df_annot_clean = df_gene_guide_efficiencies
+            .lazy()
+            .with_column(
+                col("Gene")
+                    .str()
+                    .replace(lit(pattern), lit(""), false)  // false => pattern is a regex
+                    .alias("Gene")
+            )
+            .collect()?;
 
         // Modify the DataFrame processing part to use two potential windows
         let df = df_annot_clean.clone()
@@ -109,10 +116,7 @@ impl Dataset for AvanaDataset {
                     .alias("end"),
             ])
             .with_column(
-                when(col("efficacy").lt(lit(0.0)))  // For negative values
-                    .then(col("efficacy") * lit(100.0))
-                    .otherwise(col("efficacy"))  // Added missing otherwise clause
-                    .alias("efficacy")
+                (col("efficacy") * lit(100.0)).alias("efficacy")
             )
             .select(&[col("*")])
             .collect()?;
