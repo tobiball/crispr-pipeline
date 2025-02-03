@@ -50,7 +50,7 @@ pub const REQUIRED_COLUMNS: &[&str] = &[
     "chromosome",
     "sgRNA",
     "strand",
-    "effect",
+    "efficacy",
     "start",
     "end"
 ];
@@ -73,7 +73,7 @@ pub trait Dataset {
 
             // Return a PolarsError so your calling code can handle it:
             return Err(PolarsError::ComputeError(
-                format!("Missing required columns: {:?}", missing).into(),
+                format!("Validation check! Missing required columns: {:?}", missing).into(),
             ));
         }
         Ok(())
@@ -84,7 +84,7 @@ pub trait Dataset {
         debug!("df_ceg columns: {:?}", df_ceg.get_column_names());
 
         // 1) Extract the GENE column as a Series
-        let df_filtered = df.join(&df_ceg, ["symbol"], ["GENE"], JoinArgs::from(JoinType::Semi))?;
+        let df_filtered = df.join(&df_ceg, ["Gene"], ["GENE"], JoinArgs::from(JoinType::Semi))?;
 
         debug!("{:?}",df_filtered);
 

@@ -43,15 +43,14 @@ impl Dataset for AvanaDataset {
 
         // Merge the DataFrames on the "sgRNA" column
         info!("Merging efficacy and guide map DataFrames on 'sgRNA' column");
-        let df_gene_guide_efficiencies = match efficacy.join(
+        let mut df_gene_guide_efficiencies = match efficacy.join(
             &guide_map,
             ["sgRNA"],
             ["sgRNA"],
             JoinArgs::from(JoinType::Inner),
         ) {
             Ok(mut df) => {
-                // Rename "Efficacy" -> "effect" in the joined DataFrame (eager).
-                df.rename("Efficacy", "effect".into())?;
+                df.rename("Efficacy", "efficacy".into())?;
                 df
             },
             Err(e) => {
@@ -59,12 +58,22 @@ impl Dataset for AvanaDataset {
                 return Err(e);
             }
         };
+
+
         let total_guides = df_gene_guide_efficiencies.height();
 
         info!("Number of sgRNAs to check: {}", total_guides);
 
+        let pattern = r"\s*\([^)]*\)$";
+        let df_annot_clean = df_gene_guide_efficiencies.with_column(
+            col("Gene")
+                .str()
+                .replace(pattern, "", true) // 'true' => literal=false means regex usage
+                .alias("Gene_clean")
+        )?;
+
         // Modify the DataFrame processing part to use two potential windows
-        let df = df_gene_guide_efficiencies
+        let df = df_annot_clean.clone()
             .lazy()
             .with_column(
                 col("GenomeAlignment")
@@ -99,6 +108,12 @@ impl Dataset for AvanaDataset {
                     .otherwise(col("position") - lit(MINUS_STRAND_OFFSET - 1)))
                     .alias("end"),
             ])
+            .with_column(
+                when(col("efficacy").lt(lit(0.0)))  // For negative values
+                    .then(col("efficacy") * lit(100.0))
+                    .otherwise(col("efficacy"))  // Added missing otherwise clause
+                    .alias("efficacy")
+            )
             .select(&[col("*")])
             .collect()?;
 
@@ -106,6 +121,5 @@ impl Dataset for AvanaDataset {
 
         Ok(df)
     }
-
 }
 

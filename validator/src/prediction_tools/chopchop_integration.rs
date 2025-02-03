@@ -34,7 +34,7 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
     debug!("CSV Writer initialized successfully.");
 
     // Write the header row
-    wtr.write_record(["chromosome", "start", "end", "guide", "dataset_effect", "chopchop_efficiency", "difference"])?;
+    wtr.write_record(["chromosome", "start", "end", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])?;
     debug!("CSV header written.");
 
     let total_rows = df.height();
@@ -63,18 +63,18 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
 
         let raw_guide = df.column("sgRNA")?.get(i)?.to_string();
         let guide = raw_guide.trim_matches('"');
-        let effect: f64 = match df.column("effect")?.get(i)? {
+        let efficacy: f64 = match df.column("efficacy")?.get(i)? {
             AnyValue::Float64(eff) => eff,
             other => {
-                error!("Unexpected type for effect at row {}: {:?}", i, other);
+                error!("Unexpected type for efficacy at row {}: {:?}", i, other);
                 continue;
             }
         };
-        let effect_scaled = effect * 100.0;
+        let efficacy_scaled = efficacy;
 
         debug!(
-            "Row {}: chromosome={}, start={}, end={}, sgRNA={}, effect_scaled={}",
-            i, chromosome, start, end, guide, effect_scaled
+            "Row {}: chromosome={}, start={}, end={}, sgRNA={}, efficacy_scaled={}",
+            i, chromosome, start, end, guide, efficacy_scaled
         );
 
         // Build the target region in the format "chr:start-end"
@@ -165,8 +165,8 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
 
 
                 debug!("Tool Efficiency: {}", g.efficiency);
-                debug!("Dataset effect: {}", effect_scaled);
-                debug!("Difference (Tool vs Dataset): {}", g.efficiency - effect_scaled);
+                debug!("Dataset efficacy: {}", efficacy_scaled);
+                debug!("Difference (Tool vs Dataset): {}", g.efficiency - efficacy_scaled);
 
                 // Write to CSV
                 wtr.write_record(&[
@@ -174,9 +174,9 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
                     start.to_string(),
                     end.to_string(),
                     g.sequence.to_string(),
-                    effect_scaled.to_string(),
+                    efficacy_scaled.to_string(),
                     g.efficiency.to_string(),
-                    (g.efficiency - effect_scaled).to_string(),
+                    (g.efficiency - efficacy_scaled).to_string(),
                 ])?;
                 wtr.flush()?;
                 debug!("Record written to CSV for guide: {}", guide_seq);

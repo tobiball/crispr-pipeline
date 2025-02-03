@@ -36,22 +36,22 @@ fn create_sub_dataframe(df_original: DataFrame) -> PolarsResult<DataFrame> {
     Ok(df_sub)
 }
 
-/// Rescale only *negative* effect values from [−9..0] to [1..100].
-/// Positive values (≥0) remain unchanged.
+use polars::prelude::*;
+
 fn rescale_depletion_column(df: DataFrame) -> PolarsResult<DataFrame> {
     let df_rescaled = df
         .lazy()
         .with_column(
-            when(col("effect").lt(lit(0.0)))
+            when(col("effect").lt(lit(0.0)))  // For negative values
                 .then(
-                    lit(1.0) - (lit(11.0) * col("effect"))
+                    (col("effect") / lit(-9.0)) * lit(100.0)
                 )
-                .otherwise(col("effect"))
+                .otherwise(lit(0.0))  // For zero and positive values
                 .alias("effect"),
         )
         .collect()?;
 
-    info!("{:?}",df_rescaled);
+    info!("{:?}", df_rescaled);
 
     Ok(df_rescaled)
 }

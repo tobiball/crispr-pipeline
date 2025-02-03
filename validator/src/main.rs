@@ -50,10 +50,10 @@ fn main() -> PolarsResult<()> {
     };
 
     let cegs = cegs.load()?;
-    let df_gc = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
-    // let df = avana_dataset.load_validated("depmap")?;
+    // let df_gc = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
+    let df = avana_dataset.load_validated("depmap", cegs)?;
 
-    run_chopchop_meta(df_gc).expect("TODO: panic message");
+    run_chopchop_meta(df).expect("TODO: panic message");
 
     // tool_evluation::analyze_chopchop_results("./data/chopchop_dataset_results.csv")?;
 
