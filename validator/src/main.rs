@@ -2,6 +2,7 @@ use crate::data_handling::cegs::Cegs;
 use polars::prelude::*;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+use crate::analysis::analyze_efficacy_distribution;
 use crate::data_handling::genome_crispr::GenomeCrisprDatsets;
 
 use crate::data_handling::avana_depmap::{AvanaDataset};
@@ -14,9 +15,7 @@ mod models;
 mod data_handling;
 mod prediction_tools;
 mod helper_functions;
-
-
-
+mod analysis;
 // Helper function to read CSV files
 
 
@@ -35,6 +34,7 @@ fn main() -> PolarsResult<()> {
     write_config_json(project_root).map_err(|e| PolarsError::ComputeError(format!("{}", e).into()))?;
 
 
+    analyze_efficacy_distribution("./data/CRISPRInferredGuideEfficacy_23Q4.csv")?;
 
 
     let cegs = Cegs {
@@ -44,19 +44,19 @@ fn main() -> PolarsResult<()> {
         path: "./data/genomecrispr/GenomeCRISPR_full05112017_brackets.csv".to_string(),
 
     };
-    let avana_dataset = AvanaDataset {
-        efficacy_path: "./data/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
-        guide_map_path: "./data/AvanaGuideMap_23Q4.csv".to_string(),
-    };
-
-    let cegs = cegs.load();
-    // let _df_gc = genomecrispr_datasets.load()?;
-    // let df = avana_dataset.load()?;
-
-
-    // run_chopchop_meta(df).expect("TODO: panic message");
-
-    tool_evluation::analyze_chopchop_results("./data/chopchop_dataset_results.csv")?;
+    // let avana_dataset = AvanaDataset {
+    //     efficacy_path: "./data/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
+    //     guide_map_path: "./data/AvanaGuideMap_23Q4.csv".to_string(),
+    // };
+    //
+    // let cegs = cegs.load();
+    let _df_gc = genomecrispr_datasets.load()?;
+    // // let df = avana_dataset.load()?;
+    //
+    //
+    // // run_chopchop_meta(df).expect("TODO: panic message");
+    //
+    // tool_evluation::analyze_chopchop_results("./data/chopchop_dataset_results.csv")?;
 
 
 
