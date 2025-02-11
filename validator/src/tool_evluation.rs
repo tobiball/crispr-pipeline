@@ -1,10 +1,6 @@
 use polars::prelude::*;
 use plotters::prelude::*;
-use std::fs::File;
-use std::path::Path;
 use crate::helper_functions::read_csv;
-// If you have any other local modules, import them here
-// e.g., `use crate::helper_functions::read_csv;` or something else
 
 pub fn analyze_chopchop_results(csv_file_path: &str) -> PolarsResult<()> {
     let df = read_csv(csv_file_path)?;

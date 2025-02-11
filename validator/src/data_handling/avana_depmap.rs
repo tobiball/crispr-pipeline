@@ -1,4 +1,5 @@
 use polars::prelude::*;
+
 use tracing::{debug, error, info};
 use crate::helper_functions::read_csv;
 use crate::models::Dataset;
@@ -16,6 +17,8 @@ pub struct AvanaDataset {
 }
 
 impl Dataset for AvanaDataset {
+
+
     fn load(&self) -> PolarsResult<DataFrame> {
         // Read the CSV files into DataFrames using the helper function
         let efficacy_path = &self.efficacy_path;
@@ -41,25 +44,43 @@ impl Dataset for AvanaDataset {
 
         // Merge the DataFrames on the "sgRNA" column
         info!("Merging efficacy and guide map DataFrames on 'sgRNA' column");
-        let df_gene_guide_efficiencies = match efficacy.join(
+        let mut df_gene_guide_efficiencies = match efficacy.join(
             &guide_map,
             ["sgRNA"],
             ["sgRNA"],
             JoinArgs::from(JoinType::Inner),
         ) {
-            Ok(df) => df,
+            Ok(mut df) => {
+                df.rename("Efficacy", "efficacy".into())?;
+                df
+            },
             Err(e) => {
                 error!("Failed to join DataFrames: {}", e);
                 return Err(e);
             }
         };
 
+
         let total_guides = df_gene_guide_efficiencies.height();
 
         info!("Number of sgRNAs to check: {}", total_guides);
 
+
+
+
+        let pattern = r"\s*\([^)]*\)$";
+        let df_annot_clean = df_gene_guide_efficiencies
+            .lazy()
+            .with_column(
+                col("Gene")
+                    .str()
+                    .replace(lit(pattern), lit(""), false)  // false => pattern is a regex
+                    .alias("Gene")
+            )
+            .collect()?;
+
         // Modify the DataFrame processing part to use two potential windows
-        let df = df_gene_guide_efficiencies
+        let df = df_annot_clean.clone()
             .lazy()
             .with_column(
                 col("GenomeAlignment")
@@ -94,6 +115,9 @@ impl Dataset for AvanaDataset {
                     .otherwise(col("position") - lit(MINUS_STRAND_OFFSET - 1)))
                     .alias("end"),
             ])
+            .with_column(
+                (col("efficacy") * lit(100.0)).alias("efficacy")
+            )
             .select(&[col("*")])
             .collect()?;
 
