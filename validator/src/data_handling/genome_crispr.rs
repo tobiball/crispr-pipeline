@@ -19,6 +19,8 @@ pub struct GenomeCrisprDatasets {
 fn rename_columns(mut df: DataFrame) -> PolarsResult<DataFrame> {
     df.rename("chr", PlSmallStr::from("chromosome"))?;
     df.rename("sequence", PlSmallStr::from("sgRNA"))?;
+    df.rename("symbol", PlSmallStr::from("Gene"))?;
+
 
     Ok(df)
 }
@@ -30,6 +32,9 @@ fn create_sub_dataframe(df_original: DataFrame) -> PolarsResult<DataFrame> {
         .filter(
             col("condition").eq(lit("viability"))
                 .or(col("condition").eq(lit("viability after 36 days")))
+        )
+        .filter(
+            col("rc_final").is_not_null()
         )
         .collect()?;
 
@@ -47,7 +52,7 @@ fn rescale_depletion_column(df: DataFrame) -> PolarsResult<DataFrame> {
                     (col("effect") / lit(-9.0)) * lit(100.0)
                 )
                 .otherwise(lit(0.0))  // For zero and positive values
-                .alias("effect"),
+                .alias("efficacy"),
         )
         .collect()?;
 
