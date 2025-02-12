@@ -49,7 +49,7 @@ fn rescale_depletion_column(df: DataFrame) -> PolarsResult<DataFrame> {
         .with_column(
             when(col("effect").lt(lit(0.0)))  // For negative values
                 .then(
-                    (col("effect") / lit(-9.0)) * lit(100.0)
+                    (col("effect") ) * lit(-10.0)
                 )
                 .otherwise(lit(0.0))  // For zero and positive values
                 .alias("efficacy"),
@@ -101,6 +101,16 @@ impl Dataset for GenomeCrisprDatasets {
             "After rescaling depletion, final shape: {} rows, {} cols",
             df_final.shape().0,
             df_final.shape().1
+        );
+
+        let df_sorted = df_final.clone()
+            .lazy()
+            .sort(vec![PlSmallStr::from("efficacy")], SortMultipleOptions::default()) // Fixed sorting
+            .collect()?;
+
+        debug!(
+            "After sorting by efficacy {:?}",
+            df_sorted,
         );
 
         Ok(df_final)
