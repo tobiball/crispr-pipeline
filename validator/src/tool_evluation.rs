@@ -3,8 +3,8 @@ use plotters::prelude::*;
 use std::fs::File;
 use std::path::Path;
 use crate::helper_functions::read_csv;
+
 // If you have any other local modules, import them here
-// e.g., `use crate::helper_functions::read_csv;` or something else
 
 pub fn analyze_chopchop_results(csv_file_path: &str) -> PolarsResult<()> {
     let df = read_csv(csv_file_path)?;
@@ -40,10 +40,10 @@ pub fn analyze_chopchop_results(csv_file_path: &str) -> PolarsResult<()> {
     println!("Max   : {:.3}", max_diff);
     println!("Mean  : {:.3}", mean_diff);
 
-    // 3) Compute correlation if you like
-    if let Some(corr) = pearson_correlation(&dataset_vals, &chopchop_vals) {
+    // Calculate Spearman correlation between dataset and chopchop
+    if let Some(corr) = spearman_correlation(&dataset_vals, &chopchop_vals) {
         println!(
-            "Correlation (dataset vs. chopchop) = {:.3}",
+            "Spearman Correlation (dataset vs. chopchop) = {:.3}",
             corr
         );
     } else {
@@ -67,7 +67,62 @@ pub fn analyze_chopchop_results(csv_file_path: &str) -> PolarsResult<()> {
     Ok(())
 }
 
-// A minimal Pearson's correlation
+// ------------------ SPEARMAN CORRELATION ------------------
+// 1. Rank the data (with average ranks for ties).
+// 2. Compute Pearson correlation of the rank vectors.
+
+/// Compute the Spearman rank correlation between two slices.
+fn spearman_correlation(x: &[f64], y: &[f64]) -> Option<f64> {
+    if x.len() != y.len() || x.is_empty() {
+        return None;
+    }
+
+    let rx = rank_data(x);
+    let ry = rank_data(y);
+
+    pearson_correlation(&rx, &ry)
+}
+
+/// Rank the data in `vals` with average-rank handling of ties.
+/// Returns a vector of the same length as `vals`, where each entry is
+/// the rank (1-based) of the corresponding element.
+fn rank_data(vals: &[f64]) -> Vec<f64> {
+    // Enumerate and sort by value
+    let mut enumerated: Vec<(usize, f64)> = vals
+        .iter()
+        .cloned()
+        .enumerate()
+        .collect();
+    enumerated.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+    // Prepare a vector for the ranks (same length as vals)
+    let mut ranks = vec![0.0; vals.len()];
+
+    let mut i = 0;
+    while i < enumerated.len() {
+        let val = enumerated[i].1;
+        let mut j = i + 1;
+        // Find the extent of this tie
+        while j < enumerated.len() && enumerated[j].1 == val {
+            j += 1;
+        }
+
+        // Average rank for all items in [i, j)
+        // The rank positions are i+1, i+2, ..., j
+        // So the average rank is ( (i+1) + (j) ) / 2
+        let avg_rank = ((i + 1) as f64 + j as f64) / 2.0;
+
+        // Assign the average rank to each item in the tie range
+        for k in i..j {
+            let original_index = enumerated[k].0;
+            ranks[original_index] = avg_rank;
+        }
+        i = j;
+    }
+    ranks
+}
+
+// Minimal Pearson's correlation, used internally for ranks
 fn pearson_correlation(x: &[f64], y: &[f64]) -> Option<f64> {
     if x.len() != y.len() || x.is_empty() {
         return None;
@@ -142,10 +197,7 @@ fn create_histogram(
         bins.iter().enumerate().map(|(i, &count)| {
             let x0 = min_val + i as f64 * bin_size;
             let x1 = x0 + bin_size;
-            Rectangle::new(
-                [(x0, 0), (x1, count)],
-                RED.mix(0.5).filled(),
-            )
+            Rectangle::new([(x0, 0), (x1, count)], RED.mix(0.5).filled())
         }),
     )?;
 
@@ -191,7 +243,7 @@ fn create_scatter(
         })
     )?;
 
-    // Optionally draw identity line (0..100) or min to max
+    // Optionally draw identity line
     let diag_min = min_x.min(min_y);
     let diag_max = max_x.max(max_y);
     chart.draw_series(LineSeries::new(
