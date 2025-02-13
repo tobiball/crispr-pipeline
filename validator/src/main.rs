@@ -2,7 +2,7 @@ use crate::data_handling::cegs::Cegs;
 use polars::prelude::*;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
-use crate::data_handling::genome_crispr::GenomeCrisprDatsets;
+use crate::data_handling::genome_crispr::GenomeCrisprDatasets;
 
 use crate::data_handling::avana_depmap::{AvanaDataset};
 use crate::helper_functions::{project_root, write_config_json};
@@ -40,7 +40,7 @@ fn main() -> PolarsResult<()> {
     let cegs = Cegs {
         path: "./data/cegv2.txt".to_string()
     };
-    let genomecrispr_datasets = GenomeCrisprDatsets {
+    let genomecrispr_datasets = GenomeCrisprDatasets {
         path: "./data/genomecrispr/GenomeCRISPR_full05112017_brackets.csv".to_string(),
 
     };
@@ -49,14 +49,13 @@ fn main() -> PolarsResult<()> {
         guide_map_path: "./data/AvanaGuideMap_23Q4.csv".to_string(),
     };
 
-    let cegs = cegs.load();
-    // let _df_gc = genomecrispr_datasets.load()?;
-    // let df = avana_dataset.load()?;
+    let cegs = cegs.load()?;
+    // let df_gc = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
+    let df = avana_dataset.load_validated("depmap", cegs)?;
 
+    run_chopchop_meta(df).expect("TODO: panic message");
 
-    // run_chopchop_meta(df).expect("TODO: panic message");
-
-    tool_evluation::analyze_chopchop_results("./data/chopchop_dataset_results.csv")?;
+    // tool_evluation::analyze_chopchop_results("./data/chopchop_dataset_results.csv")?;
 
 
 

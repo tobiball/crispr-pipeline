@@ -5,11 +5,12 @@
       <sourceFolder url="file://$MODULE_DIR$/sequence_retriever/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/validator/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/genome_crispr_analysis/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/chronos_run/chronos" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/sequence_retriever/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/validator/target" />
     </content>
-    <orderEntry type="inheritedJdk" />
+    <orderEntry type="jdk" jdkName="Python 3.10 virtualenv at ~/crispr_pipeline/chronos_run/venv" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
