@@ -45,17 +45,17 @@ fn main() -> PolarsResult<()> {
 
     };
     let avana_dataset = AvanaDataset {
-        efficacy_path: "./data/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
-        guide_map_path: "./data/AvanaGuideMap_23Q4.csv".to_string(),
+        efficacy_path: "./data/depmap/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
+        guide_map_path: "./data/depmap/AvanaGuideMap_23Q4.csv".to_string(),
     };
 
-    let cegs = cegs.load()?;
+    // let cegs = cegs.load()?;
     // let df_gc = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
-    let df = avana_dataset.load_validated("depmap", cegs)?;
+    // // let df = avana_dataset.load_validated("depmap", cegs)?;
+    //
+    // run_chopchop_meta(df_gc).expect("TODO: panic message");
 
-    run_chopchop_meta(df).expect("TODO: panic message");
-
-    // tool_evluation::analyze_chopchop_results("./data/chopchop_dataset_results.csv")?;
+    tool_evluation::analyze_chopchop_results("./validator/chopchop_dataset_results_ceg.csv")?;
 
 
 
