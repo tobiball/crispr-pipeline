@@ -49,7 +49,7 @@ fn rescale_depletion_column(df: DataFrame) -> PolarsResult<DataFrame> {
         .with_column(
             when(col("effect").lt(lit(0.0)))  // For negative values
                 .then(
-                    (col("effect") / lit(-9.0)) * lit(100.0)
+                    (col("effect") / lit(-10.0)) * lit(100.0)
                 )
                 .otherwise(lit(0.0))  // For zero and positive values
                 .alias("efficacy"),

@@ -12,11 +12,12 @@ use crate::helper_functions::read_csv;
 const FRACTION_CUTOFF: f64 = 0.25;
 const DATASET_CUTOFF: f64 = 0.99;
 const CALIBRATION_BINS: usize = 10;
-panic!("Something is fishy with the curves")
 // --------------------------------------------------------
 //  Entrypoint
 // --------------------------------------------------------
 pub fn analyze_chopchop_results(csv_file_path: &str) -> PolarsResult<()> {
+    panic!("Something is fishy with the curves");
+
     // 1) Create subdirs. Fix the mismatch by using a closure to map `std::io::Error`
     fs::create_dir_all("results").map_err(|e| polars_err(Box::new(e)))?;
     fs::create_dir_all("results/fraction").map_err(|e| polars_err(Box::new(e)))?;
