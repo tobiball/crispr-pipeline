@@ -49,13 +49,13 @@ fn main() -> PolarsResult<()> {
         guide_map_path: "./data/depmap/AvanaGuideMap_23Q4.csv".to_string(),
     };
 
-    let cegs = cegs.load()?;
-    let df_gc = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
-    // let df = avana_dataset.load_validated("depmap", cegs)?;
+    // let cegs = cegs.load()?;
+    // let df_gc = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
+    // // let df = avana_dataset.load_validated("depmap", cegs)?;
+    //
+    // run_chopchop_meta(df_gc).expect("TODO: panic message");
 
-    run_chopchop_meta(df_gc).expect("TODO: panic message");
-
-    // tool_evluation::analyze_chopchop_results("./validator/chopchop_dataset_results_ceg.csv")?;
+    tool_evluation::analyze_chopchop_results("./validator/chopchop_dataset_results_ceg.csv", "depmap")?;
 
 
 

@@ -7,10 +7,9 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Adjust Avana efficacy scaling">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Updating logic">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/tool_evluation.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/tool_evluation.rs" afterDir="false" />
     </list>
@@ -224,6 +223,8 @@
       <workItem from="1738934740650" duration="2843000" />
       <workItem from="1739260313094" duration="4380000" />
       <workItem from="1739267120393" duration="1416000" />
+      <workItem from="1739784506671" duration="14567000" />
+      <workItem from="1739877868660" duration="7002000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -457,7 +458,15 @@
       <option name="project" value="LOCAL" />
       <updated>1738590978721</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="Updating logic">
+      <option name="closed" value="true" />
+      <created>1739712245431</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1739712245431</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -510,7 +519,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/chopchop" />
     </ignored-roots>
-    <MESSAGE value="Pull Gene info" />
     <MESSAGE value="Ignore files" />
     <MESSAGE value="Adjust struct fields" />
     <MESSAGE value="Truncated gene output" />
@@ -535,7 +543,8 @@
     <MESSAGE value="Implement df column checking trait" />
     <MESSAGE value="Scaling and column names" />
     <MESSAGE value="Adjust Avana efficacy scaling" />
-    <option name="LAST_COMMIT_MESSAGE" value="Adjust Avana efficacy scaling" />
+    <MESSAGE value="Updating logic" />
+    <option name="LAST_COMMIT_MESSAGE" value="Updating logic" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/crispr_pipeline$chronos_genome_crisp.coverage" NAME="chronos_genome_crisp Coverage Results" MODIFIED="1739262010840" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/chronos_run" />
