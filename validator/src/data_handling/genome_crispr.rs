@@ -42,6 +42,7 @@ fn create_sub_dataframe(df_original: DataFrame) -> PolarsResult<DataFrame> {
 }
 
 use polars::prelude::*;
+use crate::mageck_processing::run_mageck_pipeline;
 
 fn rescale_depletion_column(df: DataFrame) -> PolarsResult<DataFrame> {
     let df_rescaled = df
@@ -55,8 +56,6 @@ fn rescale_depletion_column(df: DataFrame) -> PolarsResult<DataFrame> {
                 .alias("efficacy"),
         )
         .collect()?;
-
-    info!("{:?}", df_rescaled);
 
     Ok(df_rescaled)
 }
@@ -103,6 +102,59 @@ impl Dataset for GenomeCrisprDatasets {
             df_final.shape().1
         );
 
+        debug!("df after reading = {:?}", df_final.head(Some(5)));
+
+
         Ok(df_final)
     }
+
+    fn mageck_efficency_scoring(df: DataFrame) -> PolarsResult<DataFrame> {
+
+
+        debug!("{:?}", df);
+
+        run_mageck_pipeline(
+            df,
+            "/home/mrcrispr/crispr_pipeline/mageck/mageck_venv/bin/mageck",
+            "./validator/my_experiment",
+            &["rc_final".to_string()],
+            &["rc_initial".to_string()],
+            "sgRNA",
+            "Gene",
+            &["rc_initial", "rc_final"]
+        )
+
+    }
 }
+
+// fn remove_quotes_from_column_names(mut df: DataFrame) -> PolarsResult<DataFrame> {
+//     // Current names
+//     let binding = df.clone();
+//     let old_names: Vec<_> = binding.get_column_names_str().iter().map(|s| *s).collect();
+//
+//     // Calculate the new names (removing quotes, trimming)
+//     let new_names: Vec<String> = old_names
+//         .iter()
+//         .map(|name| name.replace('"', "").trim().to_owned())
+//         .collect();
+//
+//     // Rename columns one by one
+//     for (old, new) in old_names.iter().zip(new_names.iter()) {
+//         df.rename(old, PlSmallStr::from(new))?;
+//     }
+//     Ok(df)
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

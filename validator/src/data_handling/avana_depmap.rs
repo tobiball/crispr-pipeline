@@ -125,5 +125,9 @@ impl Dataset for AvanaDataset {
 
         Ok(df)
     }
+
+    fn mageck_efficency_scoring(df: DataFrame) -> PolarsResult<DataFrame> {
+        todo!()
+    }
 }
 
