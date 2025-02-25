@@ -6,10 +6,11 @@ use std::fs;
 use std::io::Write;
 use tracing::{debug, error, info};
 use plotters_backend::BackendTextStyle;
+
 // --------------------------------------------------------
 //  Constants
 // --------------------------------------------------------
-const FRACTION_CUTOFF: f64 = 0.25;
+const FRACTION_CUTOFF: f64 = 25.0;
 const DATASET_CUTOFF: f64 = 90.0;
 const CALIBRATION_BINS: usize = 10;
 
@@ -65,13 +66,19 @@ pub fn analyze_chopchop_results(csv_file_path: &str, dataset: &str) -> PolarsRes
     }
 
     // Fraction-based plots.
-    fraction_plots(&differences, &dataset_vals, &chopchop_vals, &results_directory)?;
+    fraction_plots(
+        &differences,
+        &dataset_vals,
+        &chopchop_vals,
+        &results_directory,
+        dataset,
+    )?;
 
     // Calibrated plots.
-    calibrated_plots(&dataset_vals, &chopchop_vals, &results_directory)?;
+    calibrated_plots(&dataset_vals, &chopchop_vals, &results_directory, dataset)?;
 
     // Mapping + Regression.
-    mapping_regression_plots(&dataset_vals, &chopchop_vals, &results_directory)?;
+    mapping_regression_plots(&dataset_vals, &chopchop_vals, &results_directory, dataset)?;
 
     // Calibration table + plot.
     produce_calibration_analysis(
@@ -80,26 +87,34 @@ pub fn analyze_chopchop_results(csv_file_path: &str, dataset: &str) -> PolarsRes
         DATASET_CUTOFF,
         CALIBRATION_BINS,
         &results_directory,
+        dataset,
     )?;
 
     // Now find the best threshold for chopchop to maximize F1
-    let (best_pred_thr, best_f1) = find_best_predicted_cutoff(
-        &dataset_vals,
-        &chopchop_vals,
-        DATASET_CUTOFF
+    let (best_pred_thr, best_f1) =
+        find_best_predicted_cutoff(&dataset_vals, &chopchop_vals, DATASET_CUTOFF);
+    println!(
+        "Best CHOPCHOP threshold = {:.3} => F1 = {:.3}",
+        best_pred_thr, best_f1
     );
-    println!("Best CHOPCHOP threshold = {:.3} => F1 = {:.3}", best_pred_thr, best_f1);
 
     // You have already computed this in your code:
-    let cm = compute_confusion_matrix(&dataset_vals, &chopchop_vals, DATASET_CUTOFF, best_pred_thr);
+    let cm = compute_confusion_matrix(
+        &dataset_vals,
+        &chopchop_vals,
+        DATASET_CUTOFF,
+        best_pred_thr,
+    );
     let (prec, rec, f1) = precision_recall_f1(&cm);
-    println!("Final results: precision={:.3}, recall={:.3}, f1={:.3}", prec, rec, f1);
+    println!(
+        "Final results: precision={:.3}, recall={:.3}, f1={:.3}",
+        prec, rec, f1
+    );
 
     // Combine a multi-line title showing both cutoffs:
     let cm_title = format!(
-        "Confusion Matrix: CHOPCHOP vs Dataset\n(Actual ≥ {:.2} [manual], Pred ≥ {:.2} [auto])",
-        DATASET_CUTOFF, // your manually chosen actual cutoff
-        best_pred_thr   // the auto-chosen predicted threshold
+        "Confusion Matrix: CHOPCHOP vs {} \n(Actual ≥ {:.2} [manual], Pred ≥ {:.2} [auto])",
+        dataset, DATASET_CUTOFF, best_pred_thr
     );
 
     // Convert [TN, FP, FN, TP] => [[TN, FP], [FN, TP]]:
@@ -110,8 +125,8 @@ pub fn analyze_chopchop_results(csv_file_path: &str, dataset: &str) -> PolarsRes
         &format!("{}/confusion_matrix.png", results_directory),
         cm_2x2,
         &cm_title,
-    ).map_err(polars_err)?;;
-
+    )
+        .map_err(polars_err)?;
 
     // Finally, log that we're done:
     info!("Done. See '{}' for outputs.", results_directory);
@@ -209,7 +224,6 @@ fn find_best_predicted_cutoff(
     (best_threshold, best_f1)
 }
 
-
 // --------------------------------------------------------
 //  Fraction-based approach
 // --------------------------------------------------------
@@ -218,69 +232,78 @@ fn fraction_plots(
     dataset_vals: &[f64],
     chopchop_vals: &[f64],
     results_directory: &str,
+    dataset: &str,
 ) -> PolarsResult<()> {
     let frac_dir = format!("{}/fraction", results_directory);
 
     // Overall.
     {
-        let (pr_rec, pr_prec) = evaluate_pr_fraction(dataset_vals, chopchop_vals, FRACTION_CUTOFF);
+        let (pr_rec, pr_prec) =
+            evaluate_pr_fraction(dataset_vals, chopchop_vals, FRACTION_CUTOFF);
         plot_precision_recall_curve(
             &format!("{}/precision_recall_overall.png", frac_dir),
             &pr_rec,
             &pr_prec,
-            &format!("PR (Fraction {:.0}%) - Overall", FRACTION_CUTOFF * 100.0),
+            &format!("PR (Fraction {:.0}%) - Overall", FRACTION_CUTOFF),
         )
             .map_err(polars_err)?;
 
-        let (roc_fpr, roc_tpr) = evaluate_roc_fraction(dataset_vals, chopchop_vals, FRACTION_CUTOFF);
+        let (roc_fpr, roc_tpr) =
+            evaluate_roc_fraction(dataset_vals, chopchop_vals, FRACTION_CUTOFF);
         plot_roc_curve(
             &format!("{}/roc_curve_overall.png", frac_dir),
             &roc_fpr,
             &roc_tpr,
-            &format!("ROC (Fraction {:.0}%) - Overall", FRACTION_CUTOFF * 100.0),
+            &format!("ROC (Fraction {:.0}%) - Overall", FRACTION_CUTOFF),
         )
             .map_err(polars_err)?;
 
-        create_diff_histogram(&format!("{}/difference_histogram.png", frac_dir), differences)
+        create_diff_histogram(
+            &format!("{}/difference_histogram.png", frac_dir),
+            differences,
+            dataset,
+        )
             .map_err(polars_err)?;
     }
 
     // Dataset alone.
     {
         create_histogram(
-            &format!("{}/dataset_efficacy_histogram.png", frac_dir),
+            &format!("{}/{}_efficacy_histogram.png", frac_dir, dataset),
             dataset_vals,
-            "Dataset Efficacy (Fraction)",
+            &format!("{} Efficacy", dataset),
             "Efficacy",
             "Count",
         )
             .map_err(polars_err)?;
 
         create_scatter(
-            &format!("{}/dataset_scatter.png", frac_dir),
+            &format!("{}/{}_scatter.png", frac_dir, dataset),
             dataset_vals,
             dataset_vals,
-            "Dataset Efficacy",
-            "Dataset Efficacy",
-            "Dataset vs Dataset (Fraction)",
+            &format!("{} Efficacy", dataset),
+            &format!("{} Efficacy", dataset),
+            &format!("{} vs {} (Fraction)", dataset, dataset),
         )
             .map_err(polars_err)?;
 
-        let (pr_rec_ds, pr_prec_ds) = evaluate_pr_fraction(dataset_vals, dataset_vals, FRACTION_CUTOFF);
+        let (pr_rec_ds, pr_prec_ds) =
+            evaluate_pr_fraction(dataset_vals, dataset_vals, FRACTION_CUTOFF);
         plot_precision_recall_curve(
-            &format!("{}/precision_recall_dataset.png", frac_dir),
+            &format!("{}/precision_recall_{}.png", frac_dir, dataset),
             &pr_rec_ds,
             &pr_prec_ds,
-            &format!("PR - Dataset alone (Fraction {:.0}%)", FRACTION_CUTOFF * 100.0),
+            &format!("PR - {} alone (Fraction {:.0}%)", dataset, FRACTION_CUTOFF),
         )
             .map_err(polars_err)?;
 
-        let (roc_fpr_ds, roc_tpr_ds) = evaluate_roc_fraction(dataset_vals, dataset_vals, FRACTION_CUTOFF);
+        let (roc_fpr_ds, roc_tpr_ds) =
+            evaluate_roc_fraction(dataset_vals, dataset_vals, FRACTION_CUTOFF);
         plot_roc_curve(
-            &format!("{}/roc_curve_dataset.png", frac_dir),
+            &format!("{}/roc_curve_{}.png", frac_dir, dataset),
             &roc_fpr_ds,
             &roc_tpr_ds,
-            &format!("ROC - Dataset alone (Fraction {:.0}%)", FRACTION_CUTOFF * 100.0),
+            &format!("ROC - {} alone (Fraction {:.0}%)", dataset, FRACTION_CUTOFF),
         )
             .map_err(polars_err)?;
     }
@@ -312,7 +335,7 @@ fn fraction_plots(
             &format!("{}/precision_recall_chopchop.png", frac_dir),
             &pr_rec_cc,
             &pr_prec_cc,
-            &format!("PR - CHOPCHOP alone (Fraction {:.0}%)", FRACTION_CUTOFF * 100.0),
+            &format!("PR - CHOPCHOP alone (Fraction {:.0}%)", FRACTION_CUTOFF),
         )
             .map_err(polars_err)?;
 
@@ -322,7 +345,7 @@ fn fraction_plots(
             &format!("{}/roc_curve_chopchop.png", frac_dir),
             &roc_fpr_cc,
             &roc_tpr_cc,
-            &format!("ROC - CHOPCHOP alone (Fraction {:.0}%)", FRACTION_CUTOFF * 100.0),
+            &format!("ROC - CHOPCHOP alone (Fraction {:.0}%)", FRACTION_CUTOFF),
         )
             .map_err(polars_err)?;
     }
@@ -333,68 +356,79 @@ fn fraction_plots(
 // --------------------------------------------------------
 //  Calibrated approach
 // --------------------------------------------------------
-fn calibrated_plots(dataset_vals: &[f64], chopchop_vals: &[f64], results_directory: &str) -> PolarsResult<()> {
+fn calibrated_plots(
+    dataset_vals: &[f64],
+    chopchop_vals: &[f64],
+    results_directory: &str,
+    dataset: &str,
+) -> PolarsResult<()> {
     let cal_dir = format!("{}/calibrated", results_directory);
 
     // Overall.
     {
-        let (pr_rec, pr_prec) = evaluate_pr_calibrated(dataset_vals, chopchop_vals, DATASET_CUTOFF);
+        let (pr_rec, pr_prec) =
+            evaluate_pr_calibrated(dataset_vals, chopchop_vals, DATASET_CUTOFF);
         plot_precision_recall_curve(
             &format!("{}/precision_recall_overall.png", cal_dir),
             &pr_rec,
             &pr_prec,
-            &format!("PR (Calibrated ≥{:.0}%) - Overall", DATASET_CUTOFF * 100.0),
+            &format!("PR (≥{:.0}%) - Overall", DATASET_CUTOFF),
         )
             .map_err(polars_err)?;
 
-        let (roc_fpr, roc_tpr) = evaluate_roc_calibrated(dataset_vals, chopchop_vals, DATASET_CUTOFF);
+        let (roc_fpr, roc_tpr) =
+            evaluate_roc_calibrated(dataset_vals, chopchop_vals, DATASET_CUTOFF);
         plot_roc_curve(
             &format!("{}/roc_curve_overall.png", cal_dir),
             &roc_fpr,
             &roc_tpr,
-            &format!("ROC (Calibrated ≥{:.0}%) - Overall", DATASET_CUTOFF),
+            &format!("ROC ( ≥{:.0}%) - Overall", DATASET_CUTOFF),
         )
             .map_err(polars_err)?;
     }
 
     // Dataset alone.
     {
-        let (pr_rec_ds, pr_prec_ds) = evaluate_pr_calibrated(dataset_vals, dataset_vals, DATASET_CUTOFF);
+        let (pr_rec_ds, pr_prec_ds) =
+            evaluate_pr_calibrated(dataset_vals, dataset_vals, DATASET_CUTOFF);
         plot_precision_recall_curve(
-            &format!("{}/precision_recall_dataset.png", cal_dir),
+            &format!("{}/precision_recall_{}.png", cal_dir, dataset),
             &pr_rec_ds,
             &pr_prec_ds,
-            &format!("PR - Dataset alone (≥{:.0}%)", DATASET_CUTOFF * 100.0),
+            &format!("PR - {} alone (≥{:.0}%)", dataset, DATASET_CUTOFF),
         )
             .map_err(polars_err)?;
 
-        let (roc_fpr_ds, roc_tpr_ds) = evaluate_roc_calibrated(dataset_vals, dataset_vals, DATASET_CUTOFF);
+        let (roc_fpr_ds, roc_tpr_ds) =
+            evaluate_roc_calibrated(dataset_vals, dataset_vals, DATASET_CUTOFF);
         plot_roc_curve(
-            &format!("{}/roc_curve_dataset.png", cal_dir),
+            &format!("{}/roc_curve_{}.png", cal_dir, dataset),
             &roc_fpr_ds,
             &roc_tpr_ds,
-            &format!("ROC - Dataset alone (≥{:.0}%)", DATASET_CUTOFF * 100.0),
+            &format!("ROC - {} alone (≥{:.0}%)", dataset, DATASET_CUTOFF),
         )
             .map_err(polars_err)?;
     }
 
     // CHOPCHOP alone.
     {
-        let (pr_rec_cc, pr_prec_cc) = evaluate_pr_calibrated(chopchop_vals, chopchop_vals, DATASET_CUTOFF);
+        let (pr_rec_cc, pr_prec_cc) =
+            evaluate_pr_calibrated(chopchop_vals, chopchop_vals, DATASET_CUTOFF);
         plot_precision_recall_curve(
             &format!("{}/precision_recall_chopchop.png", cal_dir),
             &pr_rec_cc,
             &pr_prec_cc,
-            &format!("PR - CHOPCHOP alone (≥{:.0}%)", DATASET_CUTOFF * 100.0),
+            &format!("PR - CHOPCHOP alone (≥{:.0}%)", DATASET_CUTOFF ),
         )
             .map_err(polars_err)?;
 
-        let (roc_fpr_cc, roc_tpr_cc) = evaluate_roc_calibrated(chopchop_vals, chopchop_vals, DATASET_CUTOFF);
+        let (roc_fpr_cc, roc_tpr_cc) =
+            evaluate_roc_calibrated(chopchop_vals, chopchop_vals, DATASET_CUTOFF);
         plot_roc_curve(
             &format!("{}/roc_curve_chopchop.png", cal_dir),
             &roc_fpr_cc,
             &roc_tpr_cc,
-            &format!("ROC - CHOPCHOP alone (≥{:.0}%)", DATASET_CUTOFF * 100.0),
+            &format!("ROC - CHOPCHOP alone (≥{:.0}%)", DATASET_CUTOFF),
         )
             .map_err(polars_err)?;
     }
@@ -405,13 +439,18 @@ fn calibrated_plots(dataset_vals: &[f64], chopchop_vals: &[f64], results_directo
 // --------------------------------------------------------
 //  Mapping + Regression
 // --------------------------------------------------------
-fn mapping_regression_plots(dataset_vals: &[f64], chopchop_vals: &[f64], results_directory: &str) -> PolarsResult<()> {
+fn mapping_regression_plots(
+    dataset_vals: &[f64],
+    chopchop_vals: &[f64],
+    results_directory: &str,
+    dataset: &str,
+) -> PolarsResult<()> {
     let map_dir = format!("{}/mapping", results_directory);
     let pairs = analyze_value_mapping(dataset_vals, chopchop_vals); // (chopchop, dataset)
     let (slope, intercept) = compute_linear_regression(&pairs);
     info!(
-        "REGRESSION => dataset ~ slope * chopchop + intercept => slope={:.3}, intercept={:.3}",
-        slope, intercept
+        "REGRESSION => {} ~ slope * chopchop + intercept => slope={:.3}, intercept={:.3}",
+        dataset, slope, intercept
     );
 
     create_mapping_scatter_plot(
@@ -419,6 +458,7 @@ fn mapping_regression_plots(dataset_vals: &[f64], chopchop_vals: &[f64], results
         &pairs,
         slope,
         intercept,
+        dataset,
     )
         .map_err(polars_err)?;
 
@@ -434,10 +474,12 @@ fn produce_calibration_analysis(
     dataset_cutoff: f64,
     bin_count: usize,
     results_directory: &str,
+    dataset: &str,
 ) -> PolarsResult<()> {
     let map_dir = format!("{}/mapping", results_directory);
 
-    let calibration_points = compute_calibration_bins(chopchop_vals, dataset_vals, dataset_cutoff, bin_count);
+    let calibration_points =
+        compute_calibration_bins(chopchop_vals, dataset_vals, dataset_cutoff, bin_count);
 
     // Write calibration table as CSV.
     let table_path = format!("{}/calibration_table.csv", map_dir);
@@ -461,7 +503,7 @@ fn produce_calibration_analysis(
 
     // Generate calibration plot.
     let plot_path = format!("{}/calibration_curve.png", map_dir);
-    create_calibration_plot(&plot_path, &calibration_points).map_err(polars_err)?;
+    create_calibration_plot(&plot_path, &calibration_points, dataset).map_err(polars_err)?;
 
     Ok(())
 }
@@ -547,7 +589,11 @@ fn compute_calibration_bins(
     result
 }
 
-fn create_calibration_plot(output_path: &str, points: &[CalibPoint]) -> Result<(), Box<dyn Error>> {
+fn create_calibration_plot(
+    output_path: &str,
+    points: &[CalibPoint],
+    dataset: &str,
+) -> Result<(), Box<dyn Error>> {
     if points.is_empty() {
         info!("No calibration data. Skipping plot: {}", output_path);
         return Ok(());
@@ -567,12 +613,20 @@ fn create_calibration_plot(output_path: &str, points: &[CalibPoint]) -> Result<(
 
     let mut chart = ChartBuilder::on(&root_area)
         .margin(25)
-        .caption("Calibration Curve: CHOPCHOP vs ≥X% dataset", ("sans-serif", 20))
+        .caption(
+            &format!(
+                "Calibration Curve: CHOPCHOP vs ≥{:.0}% {}",
+                DATASET_CUTOFF,
+                dataset
+            ),
+            ("sans-serif", 20),
+        )
         .x_label_area_size(50)
         .y_label_area_size(50)
         .build_cartesian_2d(min_x..max_x, min_y..max_y)?;
 
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .disable_mesh()
         .x_desc("Mean CHOPCHOP in bin")
         .y_desc("Fraction ≥X% (actual)")
@@ -583,7 +637,11 @@ fn create_calibration_plot(output_path: &str, points: &[CalibPoint]) -> Result<(
         .map(|cp| (cp.mean_chopchop, cp.fraction_good))
         .collect();
     chart.draw_series(LineSeries::new(series_points.clone(), &BLUE))?;
-    chart.draw_series(series_points.iter().map(|&(x, y)| Circle::new((x, y), 5, BLUE.filled())))?;
+    chart.draw_series(
+        series_points
+            .iter()
+            .map(|&(x, y)| Circle::new((x, y), 5, BLUE.filled())),
+    )?;
 
     // Draw diagonal y = x.
     let diag = (0..=100).map(|i| {
@@ -663,7 +721,11 @@ fn pearson_correlation(x: &[f64], y: &[f64]) -> Option<f64> {
 // --------------------------------------------------------
 //  Fraction-based Evaluation
 // --------------------------------------------------------
-fn evaluate_pr_fraction(dataset_vals: &[f64], chopchop_vals: &[f64], fraction: f64) -> (Vec<f64>, Vec<f64>) {
+fn evaluate_pr_fraction(
+    dataset_vals: &[f64],
+    chopchop_vals: &[f64],
+    fraction: f64,
+) -> (Vec<f64>, Vec<f64>) {
     let n = dataset_vals.len();
     if n == 0 {
         return (vec![], vec![]);
@@ -677,7 +739,8 @@ fn evaluate_pr_fraction(dataset_vals: &[f64], chopchop_vals: &[f64], fraction: f
         }
     }
     let tot_pos = actual_positives.iter().filter(|&&b| b).count();
-    let mut scored: Vec<(f64, bool)> = chopchop_vals.iter().cloned().zip(actual_positives.into_iter()).collect();
+    let mut scored: Vec<(f64, bool)> =
+        chopchop_vals.iter().cloned().zip(actual_positives.into_iter()).collect();
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
     let mut tp = 0;
     let mut recalls = vec![0.0];
@@ -694,7 +757,11 @@ fn evaluate_pr_fraction(dataset_vals: &[f64], chopchop_vals: &[f64], fraction: f
     (recalls, precisions)
 }
 
-fn evaluate_roc_fraction(dataset_vals: &[f64], chopchop_vals: &[f64], fraction: f64) -> (Vec<f64>, Vec<f64>) {
+fn evaluate_roc_fraction(
+    dataset_vals: &[f64],
+    chopchop_vals: &[f64],
+    fraction: f64,
+) -> (Vec<f64>, Vec<f64>) {
     let n = dataset_vals.len();
     if n == 0 {
         return (vec![], vec![]);
@@ -709,7 +776,8 @@ fn evaluate_roc_fraction(dataset_vals: &[f64], chopchop_vals: &[f64], fraction: 
     }
     let tot_pos = actual_positives.iter().filter(|&&b| b).count();
     let tot_neg = n - tot_pos;
-    let mut scored: Vec<(f64, bool)> = chopchop_vals.iter().cloned().zip(actual_positives.into_iter()).collect();
+    let mut scored: Vec<(f64, bool)> =
+        chopchop_vals.iter().cloned().zip(actual_positives.into_iter()).collect();
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
     let mut tp = 0;
     let mut fp = 0;
@@ -732,7 +800,11 @@ fn evaluate_roc_fraction(dataset_vals: &[f64], chopchop_vals: &[f64], fraction: 
 // --------------------------------------------------------
 //  Calibrated-based Evaluation
 // --------------------------------------------------------
-fn evaluate_pr_calibrated(dataset_vals: &[f64], chopchop_vals: &[f64], dataset_cutoff: f64) -> (Vec<f64>, Vec<f64>) {
+fn evaluate_pr_calibrated(
+    dataset_vals: &[f64],
+    chopchop_vals: &[f64],
+    dataset_cutoff: f64,
+) -> (Vec<f64>, Vec<f64>) {
     let n = dataset_vals.len();
     if n == 0 {
         return (vec![], vec![]);
@@ -744,7 +816,8 @@ fn evaluate_pr_calibrated(dataset_vals: &[f64], chopchop_vals: &[f64], dataset_c
         }
     }
     let tot_pos = actual_positives.iter().filter(|&&b| b).count();
-    let mut scored: Vec<(f64, bool)> = chopchop_vals.iter().cloned().zip(actual_positives.into_iter()).collect();
+    let mut scored: Vec<(f64, bool)> =
+        chopchop_vals.iter().cloned().zip(actual_positives.into_iter()).collect();
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
     let mut tp = 0;
     let mut recalls = vec![0.0];
@@ -761,7 +834,11 @@ fn evaluate_pr_calibrated(dataset_vals: &[f64], chopchop_vals: &[f64], dataset_c
     (recalls, precisions)
 }
 
-fn evaluate_roc_calibrated(dataset_vals: &[f64], chopchop_vals: &[f64], dataset_cutoff: f64) -> (Vec<f64>, Vec<f64>) {
+fn evaluate_roc_calibrated(
+    dataset_vals: &[f64],
+    chopchop_vals: &[f64],
+    dataset_cutoff: f64,
+) -> (Vec<f64>, Vec<f64>) {
     let n = dataset_vals.len();
     if n == 0 {
         return (vec![], vec![]);
@@ -826,7 +903,8 @@ fn plot_precision_recall_curve(
         .x_label_area_size(50)
         .y_label_area_size(50)
         .build_cartesian_2d(0.0..1.0, 0.0..1.0)?;
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .disable_mesh()
         .x_desc("Recall")
         .y_desc("Precision")
@@ -834,7 +912,10 @@ fn plot_precision_recall_curve(
 
     let pts: Vec<(f64, f64)> = recalls.iter().cloned().zip(precisions.iter().cloned()).collect();
     chart.draw_series(LineSeries::new(pts.clone(), &BLUE))?;
-    chart.draw_series(pts.iter().map(|&(x, y)| Circle::new((x, y), 3, BLUE.filled())))?;
+    chart.draw_series(
+        pts.iter()
+            .map(|&(x, y)| Circle::new((x, y), 3, BLUE.filled())),
+    )?;
 
     info!("Precision-Recall curve saved: {}", output_path);
     Ok(())
@@ -859,7 +940,8 @@ fn plot_roc_curve(
         .x_label_area_size(50)
         .y_label_area_size(50)
         .build_cartesian_2d(0.0..1.0, 0.0..1.0)?;
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .disable_mesh()
         .x_desc("False Positive Rate")
         .y_desc("True Positive Rate")
@@ -867,7 +949,10 @@ fn plot_roc_curve(
 
     let pts: Vec<(f64, f64)> = fprs.iter().cloned().zip(tprs.iter().cloned()).collect();
     chart.draw_series(LineSeries::new(pts.clone(), &BLUE))?;
-    chart.draw_series(pts.iter().map(|&(x, y)| Circle::new((x, y), 3, BLUE.filled())))?;
+    chart.draw_series(
+        pts.iter()
+            .map(|&(x, y)| Circle::new((x, y), 3, BLUE.filled())),
+    )?;
     // Diagonal line.
     chart.draw_series(LineSeries::new(
         (0..=100).map(|i| {
@@ -881,7 +966,11 @@ fn plot_roc_curve(
     Ok(())
 }
 
-fn create_diff_histogram(output_path: &str, values: &[f64]) -> Result<(), Box<dyn Error>> {
+fn create_diff_histogram(
+    output_path: &str,
+    values: &[f64],
+    dataset: &str,
+) -> Result<(), Box<dyn Error>> {
     if values.is_empty() {
         info!("No difference data; skipping histogram: {}", output_path);
         return Ok(());
@@ -899,17 +988,22 @@ fn create_diff_histogram(output_path: &str, values: &[f64]) -> Result<(), Box<dy
     let bin_size = range / bin_count as f64;
     let mut bins = vec![0; bin_count];
     for &val in values {
-        let idx = (((val - min_v) / bin_size).floor() as isize).clamp(0, bin_count as isize - 1) as usize;
+        let idx = (((val - min_v) / bin_size).floor() as isize)
+            .clamp(0, bin_count as isize - 1) as usize;
         bins[idx] += 1;
     }
     let max_bin = *bins.iter().max().unwrap_or(&0);
     let mut chart = ChartBuilder::on(&root_area)
         .margin(25)
-        .caption("Distribution of Difference (CHOPCHOP - Dataset)", ("sans-serif", 20))
+        .caption(
+            &format!("Distribution of Difference (CHOPCHOP - {})", dataset),
+            ("sans-serif", 20),
+        )
         .x_label_area_size(40)
         .y_label_area_size(40)
         .build_cartesian_2d(min_v..max_v, 0..max_bin)?;
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .disable_mesh()
         .x_desc("Difference")
         .y_desc("Count")
@@ -947,7 +1041,8 @@ fn create_histogram(
     let bin_size = range / bin_count as f64;
     let mut bins = vec![0; bin_count];
     for &val in values {
-        let idx = (((val - min_v) / bin_size).floor() as isize).clamp(0, bin_count as isize - 1) as usize;
+        let idx = (((val - min_v) / bin_size).floor() as isize)
+            .clamp(0, bin_count as isize - 1) as usize;
         bins[idx] += 1;
     }
     let max_bin = *bins.iter().max().unwrap_or(&0);
@@ -957,7 +1052,8 @@ fn create_histogram(
         .x_label_area_size(40)
         .y_label_area_size(40)
         .build_cartesian_2d(min_v..max_v, 0..max_bin)?;
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .disable_mesh()
         .x_desc(x_label)
         .y_desc(y_label)
@@ -998,7 +1094,8 @@ fn create_scatter(
         .x_label_area_size(50)
         .y_label_area_size(50)
         .build_cartesian_2d(min_x..max_x, min_y..max_y)?;
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .disable_mesh()
         .x_desc(x_label)
         .y_desc(y_label)
@@ -1057,6 +1154,7 @@ fn create_mapping_scatter_plot(
     pairs: &[(f64, f64)],
     slope: f64,
     intercept: f64,
+    dataset: &str,
 ) -> Result<(), Box<dyn Error>> {
     if pairs.is_empty() {
         info!("No data for mapping scatter plot.");
@@ -1074,14 +1172,18 @@ fn create_mapping_scatter_plot(
     root_area.fill(&WHITE)?;
     let mut chart = ChartBuilder::on(&root_area)
         .margin(25)
-        .caption("CHOPCHOP vs Dataset (Mapping + Regression)", ("sans-serif", 20))
+        .caption(
+            &format!("CHOPCHOP vs {} (Mapping + Regression)", dataset),
+            ("sans-serif", 20),
+        )
         .x_label_area_size(50)
         .y_label_area_size(50)
         .build_cartesian_2d(min_x..max_x, min_y..max_y)?;
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .disable_mesh()
         .x_desc("CHOPCHOP Score")
-        .y_desc("Dataset Efficacy")
+        .y_desc(&format!("{} Efficacy", dataset))
         .draw()?;
     chart.draw_series(pairs.iter().map(|(x, y)| Circle::new((*x, *y), 3, BLUE.filled())))?;
     let line_pts = vec![(min_x, slope * min_x + intercept), (max_x, slope * max_x + intercept)];

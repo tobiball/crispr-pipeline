@@ -7,15 +7,7 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Updating logic">
-      <change afterPath="$PROJECT_DIR$/validator/src/mageck_processing.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/cegs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/cegs.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Start integration">
       <change beforePath="$PROJECT_DIR$/validator/src/tool_evluation.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/tool_evluation.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -239,7 +231,7 @@
       <workItem from="1740397496481" duration="6194000" />
       <workItem from="1740412075243" duration="2431000" />
       <workItem from="1740473535274" duration="691000" />
-      <workItem from="1740481274722" duration="489000" />
+      <workItem from="1740481274722" duration="811000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -481,7 +473,15 @@
       <option name="project" value="LOCAL" />
       <updated>1739712245431</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="Start integration">
+      <option name="closed" value="true" />
+      <created>1740482006917</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1740482006917</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -518,7 +518,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="genome_crispr" />
+                        <option value="mageck_integration" />
                       </list>
                     </value>
                   </entry>
@@ -534,7 +534,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/chopchop" />
     </ignored-roots>
-    <MESSAGE value="Ignore files" />
     <MESSAGE value="Adjust struct fields" />
     <MESSAGE value="Truncated gene output" />
     <MESSAGE value="Chopchop integration v1" />
@@ -559,7 +558,8 @@
     <MESSAGE value="Scaling and column names" />
     <MESSAGE value="Adjust Avana efficacy scaling" />
     <MESSAGE value="Updating logic" />
-    <option name="LAST_COMMIT_MESSAGE" value="Updating logic" />
+    <MESSAGE value="Start integration" />
+    <option name="LAST_COMMIT_MESSAGE" value="Start integration" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/crispr_pipeline$chronos_genome_crisp.coverage" NAME="chronos_genome_crisp Coverage Results" MODIFIED="1739262010840" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/chronos_run" />
