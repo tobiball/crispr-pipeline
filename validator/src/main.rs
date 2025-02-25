@@ -2,11 +2,11 @@ use crate::data_handling::cegs::Cegs;
 use polars::prelude::*;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
-use crate::analysis::analyze_efficacy_distribution_df;
 use crate::data_handling::genome_crispr::GenomeCrisprDatasets;
 
 use crate::data_handling::avana_depmap::{AvanaDataset};
 use crate::helper_functions::{project_root, write_config_json};
+use crate::mageck_processing::{run_mageck_test, write_mageck_input, MageckOptions};
 use crate::models::Dataset;
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
 
@@ -15,7 +15,7 @@ mod models;
 mod data_handling;
 mod prediction_tools;
 mod helper_functions;
-mod analysis;
+mod mageck_processing;
 // Helper function to read CSV files
 
 
@@ -35,7 +35,6 @@ fn main() -> PolarsResult<()> {
 
 
 
-
     let cegs = Cegs {
         path: "./data/cegv2.txt".to_string()
     };
@@ -44,19 +43,20 @@ fn main() -> PolarsResult<()> {
 
     };
     let avana_dataset = AvanaDataset {
-        efficacy_path: "./data/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
-        guide_map_path: "./data/AvanaGuideMap_23Q4.csv".to_string(),
+        efficacy_path: "./data/depmap/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
+        guide_map_path: "./data/depmap/AvanaGuideMap_23Q4.csv".to_string(),
     };
 
     let cegs = cegs.load()?;
-    let df_gc = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
+    let df = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
     // let df = avana_dataset.load_validated("depmap", cegs)?;
+    // 1) Write a tab-delimited file for MAGeCK
 
-    analyze_efficacy_distribution_df(df_gc)?;
 
-    // run_chopchop_meta(df).expect("TODO: panic message");
+    //
+    // run_chopchop_meta(df_gc).expect("TODO: panic message");
 
-    // tool_evluation::analyze_chopchop_results("./data/chopchop_dataset_results.csv")?;
+    // tool_evluation::analyze_chopchop_results("./validator/gc_trunc.csv", "genome_crispr_trunc")?;
 
 
 

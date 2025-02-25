@@ -79,6 +79,8 @@ pub trait Dataset {
         Ok(())
     }
 
+    fn mageck_efficency_scoring(df: DataFrame) -> PolarsResult<DataFrame>;
+
     fn filter_for_ceg_only(df: DataFrame, df_ceg: DataFrame) -> PolarsResult<DataFrame> {
 
         debug!("df_ceg columns: {:?}", df_ceg.get_column_names());
@@ -95,7 +97,8 @@ pub trait Dataset {
     fn load_validated(&self, dataset_name: &str, cegs: DataFrame) -> PolarsResult<DataFrame> {
         let df = self.load()?;
         Self::validate_columns(&df, dataset_name)?;
-        let df_filtered = Self::filter_for_ceg_only(df,cegs)?;
+        let df_scored = Self::mageck_efficency_scoring(df)?;
+        let df_filtered = Self::filter_for_ceg_only(df_scored,cegs)?;
         Ok(df_filtered)
     }
     }

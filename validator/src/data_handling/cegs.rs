@@ -31,5 +31,7 @@ impl Dataset for Cegs {
         Ok(())
     }
 
-
+    fn mageck_efficency_scoring(df: DataFrame) -> PolarsResult<DataFrame> {
+        Ok((df))
+    }
 }

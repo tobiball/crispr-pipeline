@@ -1,6 +1,5 @@
-
 use std::error::Error;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, Write};
 use csv;
 use polars::datatypes::AnyValue;
@@ -26,7 +25,7 @@ pub struct ChopchopOptions {
 
 pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>> {
     // Define the CSV output path
-    let output_csv_path = "./validator/chopchop_dataset_gc_results.csv";
+    let output_csv_path = "./validator/chopchop_dataset_results_gc_ceg.csv";
     debug!("CSV will be written to: {}", output_csv_path);
 
     // Create a CSV writer
@@ -36,6 +35,17 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
     // Write the header row
     wtr.write_record(["chromosome", "start", "end", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])?;
     debug!("CSV header written.");
+
+    // 1) CREATE OR OPEN A LOG FILE FOR UNMATCHED GUIDES
+    let missing_guides_log_path = "./validator/missing_guides.log";
+    let mut missing_guides_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(missing_guides_log_path)
+        .map_err(|e| {
+            error!("Could not create/open missing guides logfile: {}", e);
+            e
+        })?;
 
     let total_rows = df.height();
     info!("Total number of sgRNAs to process: {}", total_rows);
@@ -88,6 +98,7 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
             return Err(Box::new(e));
         }
         debug!("Base output directory ensured: {}", base_output_dir);
+
         let path = format!("{}/{}/{}", base_output_dir, chromosome, i);
 
         // 1) Create the directory if it doesn’t exist
@@ -102,15 +113,12 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
         // 3) Use `output_dir` below
         debug!("Output directory created: {}", output_dir.display());
 
-
-
         // Ensure the target directory exists
         if let Err(e) = fs::create_dir_all(&output_dir) {
             error!("Failed to create output directory {}: {}", output_dir.clone().display(), e);
             continue; // Skip to the next target
         }
         debug!("Output directory created: {}", output_dir.display());
-
 
         let chopchop_base_path = project_root().join("chopchop");
         let current_dir = env::current_dir()?;
@@ -155,14 +163,15 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
 
         let mut matched = false;
         for g in &guides {
-            let guide_seq =  if g.sequence.len() == guide.len() {
+            // Some CHOPCHOP outputs may append the PAM, so we need to handle that
+            let guide_seq = if g.sequence.len() == guide.len() {
                 &g.sequence
-            }
-                else{ &g.sequence[..g.sequence.len() - 3]};
+            } else {
+                &g.sequence[..g.sequence.len() - 3]
+            };
 
             if guide_seq == guide {
                 debug!("Match found for guide: {}", guide_seq);
-
 
                 debug!("Tool Efficiency: {}", g.efficiency);
                 debug!("Dataset efficacy: {}", efficacy_scaled);
@@ -187,7 +196,15 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
         }
 
         if !matched {
+            // 2) LOG THE UNMATCHED GUIDE TO YOUR SEPARATE LOGFILE
             error!("No matching guide found for sgRNA: {}", guide);
+            writeln!(
+                missing_guides_file,
+                "No match found for Guide='{}' at {}:{}-{}",
+                guide, chromosome, start, end
+            )?;
+            // Optionally, flush if you want immediate writes
+            missing_guides_file.flush()?;
         }
 
         counter += 1.0;
@@ -203,7 +220,6 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
 
     Ok(())
 }
-
 
 pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
     debug!("Executing CHOPCHOP for target: {}", options.target);
@@ -275,11 +291,7 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<ChopchopGuide>, Bo
 
     if !std::path::Path::new(&txt_results_path).exists() {
         error!("CHOPCHOP results not found in {}", txt_results_path);
-        return Err(format!(
-            "CHOPCHOP results not found in {}.",
-            txt_results_path
-        )
-            .into());
+        return Err(format!("CHOPCHOP results not found in {}.", txt_results_path).into());
     }
 
     let file = File::open(&txt_results_path)?;
@@ -307,7 +319,8 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<ChopchopGuide>, Bo
             sequence: fields[1].to_string(),
             chromosome: fields[2].split(':').next().unwrap_or("").to_string(),
             start: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap_or(0),
-            end: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap_or(0) + fields[1].len() as u64,
+            end: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap_or(0)
+                + fields[1].len() as u64,
             strand: fields[3].chars().next().unwrap_or('+'),
             gc_content: fields[4].parse::<f64>().unwrap_or(0.0),
             self_complementarity: fields[5].parse::<u32>().unwrap_or(0),
