@@ -7,9 +7,8 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Start integration">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Reversed calibration curve and stacked bargraphs for distributions">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/tool_evluation.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/tool_evluation.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -234,7 +233,7 @@
       <workItem from="1740412075243" duration="2431000" />
       <workItem from="1740473535274" duration="691000" />
       <workItem from="1740481274722" duration="811000" />
-      <workItem from="1740566009517" duration="3033000" />
+      <workItem from="1740566009517" duration="8450000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -484,7 +483,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740482006917</updated>
     </task>
-    <option name="localTasksCounter" value="32" />
+    <task id="LOCAL-00032" summary="Reversed calibration curve and stacked bargraphs for distributions">
+      <option name="closed" value="true" />
+      <created>1740569876030</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1740569876030</updated>
+    </task>
+    <option name="localTasksCounter" value="33" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -537,7 +544,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/chopchop" />
     </ignored-roots>
-    <MESSAGE value="Adjust struct fields" />
     <MESSAGE value="Truncated gene output" />
     <MESSAGE value="Chopchop integration v1" />
     <MESSAGE value="Add better scoring - broken api urls" />
@@ -562,7 +568,8 @@
     <MESSAGE value="Adjust Avana efficacy scaling" />
     <MESSAGE value="Updating logic" />
     <MESSAGE value="Start integration" />
-    <option name="LAST_COMMIT_MESSAGE" value="Start integration" />
+    <MESSAGE value="Reversed calibration curve and stacked bargraphs for distributions" />
+    <option name="LAST_COMMIT_MESSAGE" value="Reversed calibration curve and stacked bargraphs for distributions" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/crispr_pipeline$chronos_genome_crisp.coverage" NAME="chronos_genome_crisp Coverage Results" MODIFIED="1739262010840" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/chronos_run" />
