@@ -71,7 +71,6 @@ pub fn run_mageck_pipeline(
     let mageck_input_path = format!("{}.input.txt", output_prefix);
     write_mageck_input(&df_in, &mageck_input_path, sgrna_col, gene_col, count_cols)?;
 
-    panic!();
 
     // 2) Prepare the MAGeck options
     let mageck_opts = MageckOptions {
@@ -97,11 +96,6 @@ pub fn run_mageck_pipeline(
     Ok(df_merged)
 }
 
-/// Writes a Polars DataFrame into the MAGeCK-friendly count table format.
-/// E.g.:
-/// sgrna  gene    initial  final
-/// g1     A1CF    100      50
-/// g2     A1CF    75       10
 pub fn write_mageck_input(
     df: &DataFrame,
     output_path: &str,
@@ -111,8 +105,41 @@ pub fn write_mageck_input(
 ) -> PolarsResult<()> {
     debug!("[write_mageck_input] DataFrame shape: {:?}", df.shape());
     debug!("[write_mageck_input] Columns: {:?}", df.get_column_names());
-    debug!("[write_mageck_input] Head(5): {:?}", df.head(Some(5)));
 
+    // Let's examine a few rows of input data to see what we're dealing with
+    let sample_size = std::cmp::min(5, df.height());
+    for i in 0..sample_size {
+        let sgrna = df.column(sgrna_col)?.get(i)?.to_string();
+        let gene = df.column(gene_col)?.get(i)?.to_string();
+        debug!("Sample row {}: sgRNA={}, Gene={}", i, sgrna, gene);
+
+        // Check the count columns too
+        for &col in sample_cols {
+            let val = df.column(col)?.get(i)?.to_string();
+            debug!("  {} = {}", col, val);
+        }
+    }
+
+    // Count unique sgRNAs and genes to check for duplicate issues
+    let unique_sgrnas = df.column(sgrna_col)?.unique()?;
+    let unique_genes = df.column(gene_col)?.unique()?;
+    debug!("Unique sgRNAs: {}, Unique genes: {}", unique_sgrnas.len(), unique_genes.len());
+
+    // Check for the specific repeating pattern
+    let btf3_count = df.clone().lazy()
+        .filter(col(gene_col).eq(lit("BTF3")))
+        .collect()?
+        .height();
+
+    let specific_guide_count = df.clone().lazy()
+        .filter(col(sgrna_col).eq(lit("AGGAGAGGAAGGCGATGCGACGG")))
+        .collect()?
+        .height();
+
+    debug!("BTF3 gene count: {}, AGGAGAGGAAGGCGATGCGACGG guide count: {}",
+           btf3_count, specific_guide_count);
+
+    // Continue with the original function...
     let mut df_out = df.select([sgrna_col, gene_col])?;
     debug!("[write_mageck_input] df_out shape after select: {:?}", df_out.shape());
 
@@ -121,34 +148,23 @@ pub fn write_mageck_input(
         df_out = df_out.hstack(&[df.column(colname)?.clone()])?;
     }
 
-    debug!("[write_mageck_input] df_out shape after hstack: {:?}", df_out.shape());
+    // Add a check for NaN or empty values in the count columns
+    for &col in sample_cols {
+        let null_count = df_out.column(col)?
+            .null_count();
 
-    //
-    // >>>> ADD THE SNIPPET HERE <<<<
-    //
-    // Let's log the first row that we intend to write, printing each column name,
-    // its Polars data type, and its value in row 0.
-    if df_out.height() > 0 {
-        debug!("[write_mageck_input] First row sample:");
-        // We can iterate over all columns in df_out:
-        for (field_idx, field) in df_out.schema().iter_fields().enumerate() {
-            let col_name = field.name();
-            // Safely fetch row 0
-            let val_str = df_out
-                .column(col_name)?
-                .get(0)
-                .map(|v| v.to_string())
-                .unwrap_or_else(|_| "N/A".to_string());
+        debug!("Column {} has {} null values", col, null_count);
 
-            debug!("    Column '{}' : {}", col_name, val_str);
+        // Sample some non-null values to see their format
+        if df_out.height() > 0 {
+            for i in 0..std::cmp::min(3, df_out.height()) {
+                let val = df_out.column(col)?.get(i)?.to_string();
+                debug!("Sample value for {}, row {}: {}", col, i, val);
+            }
         }
-    } else {
-        debug!("[write_mageck_input] df_out is empty! No rows to print.");
     }
 
-    //
-    // Now proceed to actually create/write the file:
-    //
+    // Create the output file with modified row writing
     let mut f = File::create(output_path)?;
     // Write header
     write!(f, "sgrna\tgene")?;
@@ -157,18 +173,67 @@ pub fn write_mageck_input(
     }
     writeln!(f)?;
 
-    // Write rows
+    // Set to track already processed guides to avoid duplication
+    use std::collections::HashSet;
+    let mut processed_guides = HashSet::new();
+
+    // Write rows with deduplication check
     for row_idx in 0..df_out.height() {
-        let sgrna_val = df_out.column(sgrna_col)?.get(row_idx)?.to_string();
-        let gene_val  = df_out.column(gene_col)?.get(row_idx)?.to_string();
+        // Remove quotes from string values
+        let sgrna_val = df_out.column(sgrna_col)?.get(row_idx)?.to_string().trim_matches('"').to_string();
+        let gene_val = df_out.column(gene_col)?.get(row_idx)?.to_string().trim_matches('"').to_string();
+
+        // Skip if we've already processed this guide
+        if processed_guides.contains(&sgrna_val) {
+            if row_idx < 10 {  // Limit logging
+                debug!("Skipping duplicate guide: {} (gene: {})", sgrna_val, gene_val);
+            }
+            continue;
+        }
+
+        // Add to processed set
+        processed_guides.insert(sgrna_val.clone());
+
         write!(f, "{}\t{}", sgrna_val, gene_val)?;
 
+        let mut all_columns_valid = true;
+
         for &col in sample_cols {
-            let val = df_out.column(col)?.get(row_idx)?.to_string();
-            write!(f, "\t{}", val)?;
+            // Process array values, calculate average
+            let array_str = df_out.column(col)?.get(row_idx)?.to_string();
+
+            // Parse array format and extract numeric values
+            let values: Vec<f64> = array_str
+                .trim_matches('"')
+                .trim_start_matches('{')
+                .trim_end_matches('}')
+                .split(',')
+                .filter_map(|s| s.trim().parse::<f64>().ok())
+                .collect();
+
+            // Check if we have valid values
+            if values.is_empty() {
+                if row_idx < 10 {
+                    debug!("No valid values for guide: {}, gene: {}, column: {}, raw: {}",
+                           sgrna_val, gene_val, col, array_str);
+                }
+                all_columns_valid = false;
+                write!(f, "\t0")?;  // Write a default value
+            } else {
+                let final_value = values.iter().sum::<f64>() / values.len() as f64;
+                write!(f, "\t{}", final_value)?;
+            }
         }
+
+        if !all_columns_valid && row_idx < 10 {
+            debug!("Row {} had some invalid columns", row_idx);
+        }
+
         writeln!(f)?;
     }
+
+    debug!("Wrote {} unique guides to file (from {} input rows)",
+           processed_guides.len(), df_out.height());
 
     Ok(())
 }
@@ -290,12 +355,7 @@ pub fn merge_mageck_results(
     ])?;
 
     // 3) Join df_original with df_mageck on `sgrna_col`
-    let df_joined = df_original.join(
-        &df_mageck,
-        [sgrna_col],
-        [sgrna_col],
-        JoinArgs::new(JoinType::Left) // or JoinType::Inner, Right, etc.
-    )?;
+    let df_joined = df_original.join(&df_mageck, [sgrna_col], [sgrna_col], JoinArgs::new(JoinType::Left), None)?;
 
     Ok(df_joined)
 }

@@ -8,7 +8,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Reversed calibration curve and stacked bargraphs for distributions">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/mageck_processing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/mageck_processing.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/tool_evluation.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/tool_evluation.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -63,7 +70,7 @@
     &quot;Python.chronos_run.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;analyse__depmap__data&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;mageck__integration&quot;,
     &quot;last_opened_file_path&quot;: &quot;/home/mrcrispr/crispr_pipeline/validator/src&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -86,11 +93,11 @@
       <recent name="$PROJECT_DIR$/chopchop" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/shelf" />
       <recent name="$PROJECT_DIR$/validator" />
       <recent name="$PROJECT_DIR$/data" />
       <recent name="$PROJECT_DIR$/data/depmap" />
       <recent name="$PROJECT_DIR$/validator/src/prediction_tools" />
-      <recent name="$PROJECT_DIR$/validator/src/data_handling" />
     </key>
   </component>
   <component name="RunManager" selected="Cargo.Debug">
@@ -234,6 +241,8 @@
       <workItem from="1740473535274" duration="691000" />
       <workItem from="1740481274722" duration="811000" />
       <workItem from="1740566009517" duration="8450000" />
+      <workItem from="1740652778718" duration="306000" />
+      <workItem from="1740735568998" duration="15476000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />

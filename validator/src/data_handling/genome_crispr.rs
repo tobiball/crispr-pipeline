@@ -1,9 +1,13 @@
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write};
+use std::path::PathBuf;
 use polars::prelude::*;
 use polars::lazy::dsl::*;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 // Suppose you have a `Dataset` trait defined somewhere in your code:
-use crate::models::Dataset;
+use crate::models::{polars_err, Dataset};
 
 // Some helper for reading CSV:
 use crate::helper_functions::read_csv;
@@ -78,6 +82,7 @@ impl Dataset for GenomeCrisprDatasets {
     fn load(&self) -> PolarsResult<DataFrame> {
         info!("Reading GenomeCRISPR data from: {}", &self.path);
 
+        // Use the specialized reader instead of generic read_csv
         let df_original = match read_csv(&self.path) {
             Ok(df) => df,
             Err(e) => {
@@ -92,7 +97,6 @@ impl Dataset for GenomeCrisprDatasets {
         let df_filtered = create_sub_dataframe(df_renamed)?;
         debug!("After filter, {} rows", df_filtered.shape().0);
 
-
         let df_chr_fixed = ensure_chr_prefix(df_filtered)?;
 
         let df_final = rescale_depletion_column(df_chr_fixed)?;
@@ -104,9 +108,9 @@ impl Dataset for GenomeCrisprDatasets {
 
         debug!("df after reading = {:?}", df_final.head(Some(5)));
 
-
         Ok(df_final)
     }
+
 
     fn mageck_efficency_scoring(df: DataFrame) -> PolarsResult<DataFrame> {
 
@@ -126,35 +130,4 @@ impl Dataset for GenomeCrisprDatasets {
 
     }
 }
-
-// fn remove_quotes_from_column_names(mut df: DataFrame) -> PolarsResult<DataFrame> {
-//     // Current names
-//     let binding = df.clone();
-//     let old_names: Vec<_> = binding.get_column_names_str().iter().map(|s| *s).collect();
-//
-//     // Calculate the new names (removing quotes, trimming)
-//     let new_names: Vec<String> = old_names
-//         .iter()
-//         .map(|name| name.replace('"', "").trim().to_owned())
-//         .collect();
-//
-//     // Rename columns one by one
-//     for (old, new) in old_names.iter().zip(new_names.iter()) {
-//         df.rename(old, PlSmallStr::from(new))?;
-//     }
-//     Ok(df)
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
 

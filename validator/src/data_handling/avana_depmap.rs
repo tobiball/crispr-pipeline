@@ -44,12 +44,7 @@ impl Dataset for AvanaDataset {
 
         // Merge the DataFrames on the "sgRNA" column
         info!("Merging efficacy and guide map DataFrames on 'sgRNA' column");
-        let mut df_gene_guide_efficiencies = match efficacy.join(
-            &guide_map,
-            ["sgRNA"],
-            ["sgRNA"],
-            JoinArgs::from(JoinType::Inner),
-        ) {
+        let mut df_gene_guide_efficiencies = match efficacy.join(&guide_map, ["sgRNA"], ["sgRNA"], JoinArgs::from(JoinType::Inner), None) {
             Ok(mut df) => {
                 df.rename("Efficacy", "efficacy".into())?;
                 df

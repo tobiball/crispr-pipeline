@@ -1,3 +1,4 @@
+use crate::models::polars_err;
 use crate::helper_functions::read_csv;
 use polars::prelude::{DataFrame, PolarsError, PolarsResult};
 use plotters::prelude::*;
@@ -164,9 +165,7 @@ fn generate_stacked_charts(df: &DataFrame, results_directory: &str) -> PolarsRes
 // --------------------------------------------------------
 //  Error conversion helper
 // --------------------------------------------------------
-fn polars_err(err: Box<dyn Error>) -> PolarsError {
-    PolarsError::ComputeError(err.to_string().into())
-}
+
 
 // --------------------------------------------------------
 //  Basic Statistics and Correlations

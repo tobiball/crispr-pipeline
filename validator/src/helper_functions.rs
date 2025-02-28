@@ -49,6 +49,7 @@ pub fn write_config_json(project_root: &str) -> Result<(), Box<dyn std::error::E
 pub fn read_csv(file_path: &str) -> PolarsResult<DataFrame> {
     CsvReadOptions::default()
         .with_has_header(true)
+        .with_infer_schema_length(Some(10000))  // Look at more rows to detect mixed types
         .try_into_reader_with_file_path(Some(PathBuf::from(file_path)))?
         .finish()
 }

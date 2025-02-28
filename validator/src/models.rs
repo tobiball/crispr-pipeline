@@ -1,3 +1,4 @@
+use std::error::Error;
 use bio_seq::{codec::dna::Dna};
 use polars::error::PolarsResult;
 use polars::frame::DataFrame;
@@ -86,7 +87,7 @@ pub trait Dataset {
         debug!("df_ceg columns: {:?}", df_ceg.get_column_names());
 
         // 1) Extract the GENE column as a Series
-        let df_filtered = df.join(&df_ceg, ["Gene"], ["GENE"], JoinArgs::from(JoinType::Semi))?;
+        let df_filtered = df.join(&df_ceg, ["Gene"], ["GENE"], JoinArgs::from(JoinType::Semi), None)?;
 
         debug!("{:?}",df_filtered);
 
@@ -103,3 +104,7 @@ pub trait Dataset {
     }
     }
 
+
+pub fn polars_err(err: Box<dyn Error>) -> PolarsError {
+    PolarsError::ComputeError(err.to_string().into())
+}
