@@ -97,8 +97,9 @@ pub trait Dataset {
     /// A convenience method that loads and validates in one go
     fn load_validated(&self, dataset_name: &str, cegs: DataFrame) -> PolarsResult<DataFrame> {
         let df = self.load()?;
-        Self::validate_columns(&df, dataset_name)?;
         let df_scored = Self::mageck_efficency_scoring(df)?;
+        Self::validate_columns(&df_scored, dataset_name)?;
+
         let df_filtered = Self::filter_for_ceg_only(df_scored,cegs)?;
         Ok(df_filtered)
     }

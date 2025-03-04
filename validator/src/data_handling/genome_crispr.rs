@@ -57,7 +57,7 @@ fn rescale_depletion_column(df: DataFrame) -> PolarsResult<DataFrame> {
                     (col("effect") / lit(-10.0)) * lit(100.0)
                 )
                 .otherwise(lit(0.0))  // For zero and positive values
-                .alias("efficacy"),
+                .alias("effect"),
         )
         .collect()?;
 
@@ -113,21 +113,84 @@ impl Dataset for GenomeCrisprDatasets {
 
 
     fn mageck_efficency_scoring(df: DataFrame) -> PolarsResult<DataFrame> {
+        debug!("Starting MAGeCK processing for GenomeCRISPR dataset");
+        debug!("Original dataframe shape: {:?}", df.shape());
+
+        // Get the list of unique experiment IDs
+        // Assuming there's a column that identifies different screens, like "pubmed"
+        // If there's no explicit column, we might need to use a combination of columns
+        let binding = df.column("pubmed")?
+            .unique()?
+            .cast(&DataType::String)?;
+        let pubmeds = binding
+            .str()?
+            .into_iter()
+            .filter_map(|x| x)
+            .collect::<Vec<_>>();
+
+        info!("Found {} unique experiments/screens to process", pubmeds.len());
+
+        // Process each experiment separately and collect results
+        let mut results_dfs = Vec::with_capacity(pubmeds.len());
+
+        for (idx, exp_id) in pubmeds.iter().enumerate() {
+            info!("Processing experiment {}/{}: {}", idx + 1, pubmeds.len(), exp_id);
+
+            // Filter dataframe to just this experiment
+            let exp_df = df.clone().lazy()
+                .filter(col("pubmed").eq(lit(PlSmallStr::from_str(exp_id))))
+                .collect()?;
 
 
-        debug!("{:?}", df);
+            // Create a unique output prefix for this experiment
+            let output_prefix = format!("./validator/genomecrispr_exp_{}", exp_id.replace(" ", "_"));
 
-        run_mageck_pipeline(
-            df,
-            "/home/mrcrispr/crispr_pipeline/mageck/mageck_venv/bin/mageck",
-            "./validator/my_experiment",
-            &["rc_final".to_string()],
-            &["rc_initial".to_string()],
-            "sgRNA",
-            "Gene",
-            &["rc_initial", "rc_final"]
-        )
+            // Run MAGeCK for this experiment
+            let result_df = match run_mageck_pipeline(
+                exp_df,
+                "/home/mrcrispr/crispr_pipeline/mageck/mageck_venv/bin/mageck",
+                &output_prefix,
+                &["rc_final".to_string()],
+                &["rc_initial".to_string()],
+                "sgRNA",
+                "Gene",
+                &["rc_initial", "rc_final"]
+            ) {
+                Ok(df) => df,
+                Err(e) => {
+                    error!("Error processing experiment {}: {}", exp_id, e);
+                    continue; // Skip this experiment and continue with the next
+                }
+            };
 
+            results_dfs.push(result_df);
+            info!("Completed MAGeCK analysis for experiment: {}", exp_id);
+        }
+
+        // Combine all results
+        if results_dfs.is_empty() {
+            error!("No experiment results were successfully processed");
+            return Err(PolarsError::ComputeError("No experiment results to combine".into()));
+        }
+
+        // Start with the first dataframe
+        let mut combined_df = results_dfs.remove(0);
+
+        // Append the rest
+        for df in results_dfs {
+            combined_df = match combined_df.vstack(&df) {
+                Ok(df) => df,
+                Err(e) => {
+                    error!("Error combining result dataframes: {}", e);
+                    return Err(e);
+                }
+            };
+        }
+
+        info!("Successfully combined {} experiment results", pubmeds.len());
+        debug!("Final combined dataframe shape: {:?}", combined_df.shape());
+
+        Ok(combined_df)
     }
 }
 

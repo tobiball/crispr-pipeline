@@ -23,9 +23,10 @@ pub struct ChopchopOptions {
     pub max_mismatches: u8,
 }
 
-pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> Result<(), Box<dyn std::error::Error>> {
     // Define the CSV output path
-    let output_csv_path = "./validator/chopchop_dataset_results_gc_ceg.csv";
+    let output_csv_path = format!("./validator/chopchop_{}.csv",database_name);
+
     debug!("CSV will be written to: {}", output_csv_path);
 
     // Create a CSV writer
@@ -37,7 +38,7 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
     debug!("CSV header written.");
 
     // 1) CREATE OR OPEN A LOG FILE FOR UNMATCHED GUIDES
-    let missing_guides_log_path = "./validator/missing_guides.log";
+    let missing_guides_log_path = format!("./validator/chopchop_missing_guides_log_{}.csv",database_name);
     let mut missing_guides_file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -200,8 +201,8 @@ pub fn run_chopchop_meta(df: DataFrame) -> Result<(), Box<dyn std::error::Error>
             error!("No matching guide found for sgRNA: {}", guide);
             writeln!(
                 missing_guides_file,
-                "No match found for Guide='{}' at {}:{}-{}",
-                guide, chromosome, start, end
+                "No match found for Guide='{}' at {}:{}-{}  with efficacy: {}",
+                guide, chromosome, start, end, efficacy_scaled
             )?;
             // Optionally, flush if you want immediate writes
             missing_guides_file.flush()?;

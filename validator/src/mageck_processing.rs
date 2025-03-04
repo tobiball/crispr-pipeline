@@ -3,7 +3,8 @@ use std::fs::{File, create_dir_all};
 use std::io::{Write, BufRead};
 use std::process::Command;
 
-use polars::prelude::*;
+
+// use polars::prelude::*;
 use tracing::{debug, error, info};
 
 /// Holds user-defined parameters to run MAGeCK.
@@ -37,25 +38,144 @@ pub struct MageckGuideResult {
 
 
 use polars::prelude::*;
+use polars::prelude::*;
 
-/// A convenience function that:
-/// 1) Writes a tab-delimited input file for MAGeck
-/// 2) Invokes mageck test
-/// 3) Parses the resulting .sgrna_summary.txt
-/// 4) Merges the guide-level log2FC/p-values into the original DataFrame
-///
-/// # Arguments
-/// * `df_in` - The Polars DataFrame containing sgRNA, gene, and count columns
-/// * `mageck_path` - Path to the `mageck` binary
-/// * `output_prefix` - Output prefix (will produce e.g. `{prefix}.sgrna_summary.txt`)
-/// * `treat_labels` / `ctrl_labels` - Label(s) for columns used by MAGeck test
-/// * `sgrna_col` / `gene_col` - The columns used for sgRNA IDs and gene IDs
-/// * `count_cols` - The columns with read counts (e.g. `["rc_initial", "rc_final"]`)
-///
-/// Returns a PolarsResult<DataFrame> with new columns:
-///     - mageck_log2fc
-///     - mageck_pval
-///     - mageck_fdr
+/// Constants controlling the transformation of MAGeCK LFC + FDR into a 0–100 guide efficacy score
+const FDR_THRESHOLD: f64 = 0.05;       // FDR cutoff for "statistically significant" depletion
+const EXPONENT: f64 = 0.8;            // Exponent to shape the LFC distribution (0.8 "boosts" mid-range values slightly)
+const NON_SIGNIFICANT_CAP: f64 = 0.2; // Guides that are not significant get capped at 20% max
+const CLIP_FACTOR: f64 = 0.9;         // Clip the absolute min LFC to 90% for outlier resistance
+const DEFAULT_MIN_LFC: f64 = -3.0;    // Fallback if the LFC column is empty or cannot be computed
+
+
+//https://pubmed.ncbi.nlm.nih.gov/29083409/
+pub fn calculate_efficacy_scores(mut df: DataFrame) -> PolarsResult<DataFrame> {
+    info!("Calculating biologically-interpretable efficacy scores based on CERES methodology");
+
+    // If the DataFrame is empty, no work to do
+    if df.is_empty() {
+        info!("DataFrame is empty; returning unchanged.");
+        return Ok(df);
+    }
+
+    // Check if the required column exists
+    let columns = df.get_column_names();
+    if !columns.contains(&&PlSmallStr::from_str("mageck_log2fc")) {
+        return Err(PolarsError::ComputeError(
+            "Missing required column 'mageck_log2fc'".into()
+        ));
+    }
+
+    // Define biologically meaningful log2FC thresholds based on CERES and related literature
+    // These represent fold-change magnitudes commonly associated with significant effects
+    let severe_depletion: f64 = -3.0;    // >8x depletion (2^3)
+    let strong_depletion: f64 = -2.0;    // >4x depletion (2^2)
+    let moderate_depletion: f64 = -1.0;  // >2x depletion (2^1)
+    let weak_depletion: f64 = -0.585;    // >1.5x depletion (2^0.585)
+
+    info!("Using biologically meaningful LFC thresholds from https://pubmed.ncbi.nlm.nih.gov/29083409/:");
+    info!("  Severe depletion (90-100): LFC ≤ {:.2} (>8x depletion)", severe_depletion);
+    info!("  Strong depletion (70-89): LFC ≤ {:.2} (>4x depletion)", strong_depletion);
+    info!("  Moderate depletion (40-69): LFC ≤ {:.2} (>2x depletion)", moderate_depletion);
+    info!("  Weak depletion (20-39): LFC ≤ {:.2} (>1.5x depletion)", weak_depletion);
+    info!("  Minimal effect (1-19): LFC between {:.2} and 0", weak_depletion);
+    info!("  No effect (0): LFC ≥ 0");
+
+    // Extract the log2FC series
+    let lfc_series = df.column("mageck_log2fc")?.f64()?;
+
+    // LFC-only approach
+    let efficacy_ca: Float64Chunked = lfc_series
+        .into_iter()
+        .map(|lfc_opt| {
+            lfc_opt.map(|lfc| {
+                if lfc >= 0.0 {
+                    0.0
+                } else {
+                    let abs_lfc = lfc.abs();
+
+                    if abs_lfc >= severe_depletion.abs() {
+                        let beyond_severe = ((abs_lfc - severe_depletion.abs()) / 3.0).min(1.0);
+                        90.0 + (beyond_severe * 10.0)
+                    } else if abs_lfc >= strong_depletion.abs() {
+                        let range_position = (abs_lfc - strong_depletion.abs()) /
+                            (severe_depletion.abs() - strong_depletion.abs());
+                        70.0 + (range_position * 20.0)
+                    } else if abs_lfc >= moderate_depletion.abs() {
+                        let range_position = (abs_lfc - moderate_depletion.abs()) /
+                            (strong_depletion.abs() - moderate_depletion.abs());
+                        40.0 + (range_position * 30.0)
+                    } else if abs_lfc >= weak_depletion.abs() {
+                        let range_position = (abs_lfc - weak_depletion.abs()) /
+                            (moderate_depletion.abs() - weak_depletion.abs());
+                        20.0 + (range_position * 20.0)
+                    } else {
+                        1.0 + ((abs_lfc / weak_depletion.abs()) * 19.0)
+                    }
+                }
+            })
+        })
+        .collect();
+
+    // Create the new efficacy column
+    let efficacy_s = Series::new("efficacy".into(), efficacy_ca);
+
+    // Replace existing efficacy column or add new one
+    if columns.contains(&&PlSmallStr::from_str("efficacy")) {
+        df.drop_in_place("efficacy")?;
+    }
+    df.with_column(efficacy_s)?;
+
+    // Add a category column based on the efficacy score
+    let cat_s = df.column("efficacy")?
+        .f64()?
+        .into_iter()
+        .map(|eff_opt| {
+            match eff_opt {
+                Some(eff) if eff >= 90.0 => "Severe",
+                Some(eff) if eff >= 70.0 => "Strong",
+                Some(eff) if eff >= 40.0 => "Moderate",
+                Some(eff) if eff >= 20.0 => "Weak",
+                Some(eff) if eff > 0.0 => "Minimal",
+                _ => "None"
+            }
+        });
+
+    // Create a categorical column
+    let category_s = Series::new("efficacy_category".into(), cat_s.collect::<Vec<&str>>());
+    df.with_column(category_s)?;
+
+    // Log distribution of efficacy scores
+    let new_efficacy = df.column("efficacy")?.f64()?;
+
+    // Log statistics
+    info!("Efficacy score distribution:");
+    info!("  Min: {:.2}, Max: {:.2}",
+          new_efficacy.min().unwrap_or(0.0),
+          new_efficacy.max().unwrap_or(0.0));
+    info!("  Mean: {:.2}, Median: {:.2}",
+          new_efficacy.mean().unwrap_or(0.0),
+          new_efficacy.median().unwrap_or(0.0));
+
+    // Log distribution by category
+    let mut bins = vec![0; 10];
+    for eff in new_efficacy.into_iter().flatten() {
+        let bin_index = (eff / 10.0).floor().min(9.0) as usize;
+        bins[bin_index] += 1;
+    }
+
+    info!("Efficacy distribution by decile:");
+    for (i, count) in bins.iter().enumerate() {
+        let lower = i * 10;
+        let upper = (i + 1) * 10;
+        info!("  {}-{}: {} guides", lower, upper, count);
+    }
+
+    Ok(df)
+}
+
+
+// Update the run_mageck_pipeline function to calculate efficacy scores
 pub fn run_mageck_pipeline(
     mut df_in: DataFrame,
     mageck_path: &str,
@@ -66,11 +186,9 @@ pub fn run_mageck_pipeline(
     gene_col: &str,
     count_cols: &[&str],
 ) -> PolarsResult<DataFrame> {
-
     // 1) Write a tab-delimited file for MAGeck
     let mageck_input_path = format!("{}.input.txt", output_prefix);
     write_mageck_input(&df_in, &mageck_input_path, sgrna_col, gene_col, count_cols)?;
-
 
     // 2) Prepare the MAGeck options
     let mageck_opts = MageckOptions {
@@ -78,8 +196,7 @@ pub fn run_mageck_pipeline(
         output_prefix: output_prefix.to_string(),
         treat_labels: treat_labels.to_vec(),
         ctrl_labels: ctrl_labels.to_vec(),
-        // If you have a path to RRA, place it here; otherwise None
-        rra_path: None,
+        rra_path: Some("/home/mrcrispr/crispr_pipeline/mageck/mageck_venv/bin/RRA".to_string()),
     };
 
     // 3) Run mageck test
@@ -93,8 +210,26 @@ pub fn run_mageck_pipeline(
     // 5) Merge results into the original DataFrame
     let df_merged = merge_mageck_results(df_in, &mageck_results, sgrna_col)?;
 
-    Ok(df_merged)
+
+    // 6) Calculate efficacy scores based on the MAGeCK results
+    let mut df_with_efficacy = calculate_efficacy_scores(df_merged)?;
+
+
+    let mut file = File::create("mageckinput_log.csv").expect("could not create file");
+
+    CsvWriter::new(&mut file)
+        .include_header(true)
+        .with_separator(b',')
+        .finish(&mut df_with_efficacy);
+
+
+
+
+
+
+    Ok(df_with_efficacy)
 }
+
 
 pub fn write_mageck_input(
     df: &DataFrame,
@@ -124,20 +259,6 @@ pub fn write_mageck_input(
     let unique_sgrnas = df.column(sgrna_col)?.unique()?;
     let unique_genes = df.column(gene_col)?.unique()?;
     debug!("Unique sgRNAs: {}, Unique genes: {}", unique_sgrnas.len(), unique_genes.len());
-
-    // Check for the specific repeating pattern
-    let btf3_count = df.clone().lazy()
-        .filter(col(gene_col).eq(lit("BTF3")))
-        .collect()?
-        .height();
-
-    let specific_guide_count = df.clone().lazy()
-        .filter(col(sgrna_col).eq(lit("AGGAGAGGAAGGCGATGCGACGG")))
-        .collect()?
-        .height();
-
-    debug!("BTF3 gene count: {}, AGGAGAGGAAGGCGATGCGACGG guide count: {}",
-           btf3_count, specific_guide_count);
 
     // Continue with the original function...
     let mut df_out = df.select([sgrna_col, gene_col])?;
@@ -279,44 +400,45 @@ pub fn run_mageck_test(opts: &MageckOptions, input_counts_path: &str) -> Result<
 }
 
 
-/// Parse MAGeCK’s {prefix}.sgrna_summary.txt to get guide-level LFC, p-values, etc.
 pub fn parse_mageck_sgrna_summary(file_path: &str) -> PolarsResult<Vec<MageckGuideResult>> {
     let f = File::open(file_path)?;
     let reader = std::io::BufReader::new(f);
 
     let mut results = Vec::new();
-    // The .sgrna_summary.txt typically has a header line like:
-    // sgRNA  gene  score  p-value neg|pos.lfc  neg|pos.p-value ...
-    //
-    // In negative selection, we often look at the `neg.lfc` column for the log2FC.
-    // The naming may differ by MAGeCK version, so you might parse carefully.
     let mut lines = reader.lines();
-    // skip the header
-    if let Some(Ok(header_line)) = lines.next() {
-        debug!("MAGeCK .sgrna_summary header: {}", header_line);
-    }
+
+    // Read and parse header to find correct column indices
+    let header_line = lines.next().ok_or_else(|| PolarsError::ComputeError("Missing header in MAGeCK output".into()))??;
+    let header_fields: Vec<&str> = header_line.split('\t').collect();
+
+    // Find the indices for important columns
+    let log2fc_idx = header_fields.iter().position(|&h| h.contains("neg.lfc"))
+        .unwrap_or(6); // Fallback to your original guess
+    let pval_idx = header_fields.iter().position(|&h| h == "neg.p-value")
+        .unwrap_or(7);
+    let fdr_idx = header_fields.iter().position(|&h| h == "neg.fdr")
+        .unwrap_or(9);
+
+    debug!("Column indices: log2fc={}, pval={}, fdr={}", log2fc_idx, pval_idx, fdr_idx);
 
     for line in lines {
         let line = line?;
         if line.trim().is_empty() { continue; }
         let fields: Vec<&str> = line.split('\t').collect();
-        // Adjust indices to match actual columns in .sgrna_summary
-        let sgrna  = fields.get(0).unwrap_or(&"").to_string();
-        // Example: "neg.lfc" might be at column 5 or 6, etc. Inspect your output to find it.
-        let neg_lfc_str = fields.get(5).unwrap_or(&"0");
-        let neg_lfc = neg_lfc_str.parse::<f64>().unwrap_or(0.0);
+        if fields.len() <= fdr_idx {
+            debug!("Skipping short line: {}", line);
+            continue;
+        }
 
-        let neg_pval_str = fields.get(6).unwrap_or(&"1");
-        let neg_pval = neg_pval_str.parse::<f64>().unwrap_or(1.0);
-
-        // Alternatively, or in addition, there's an FDR column at maybe index 7 or 8.
-        let fdr_str = fields.get(8).unwrap_or(&"1");
-        let fdr = fdr_str.parse::<f64>().unwrap_or(1.0);
+        let sgrna = fields.get(0).unwrap_or(&"").to_string();
+        let neg_lfc = fields.get(log2fc_idx).unwrap_or(&"0").parse::<f64>().unwrap_or(0.0);
+        let neg_pval = fields.get(pval_idx).unwrap_or(&"1").parse::<f64>().unwrap_or(1.0);
+        let fdr = fields.get(fdr_idx).unwrap_or(&"1").parse::<f64>().unwrap_or(1.0);
 
         results.push(MageckGuideResult {
             sgrna,
             log2fc: neg_lfc,
-            pval:   neg_pval,
+            pval: neg_pval,
             fdr,
         });
     }

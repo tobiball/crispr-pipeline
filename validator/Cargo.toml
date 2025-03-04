@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-polars = { version = "0.46.0", features = [ "csv", "lazy","strings","semi_anti_join", "regex","dtype-array"] }
+polars = { version = "0.46.0", features = [ "csv", "lazy","strings","semi_anti_join", "regex","dtype-array","polars-ops","abs", "round_series","polars-lazy"] }
+polars-ops = "0.46.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 csv = "1.3.1"
@@ -16,3 +17,4 @@ plotters = "0.3.7"
 plotters-svg = "0.3"
 plotters-bitmap = "0.3"
 plotters-backend = "0.3.7"
+log = "0.4.22"

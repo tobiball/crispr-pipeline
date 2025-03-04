@@ -7,16 +7,15 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Reversed calibration curve and stacked bargraphs for distributions">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="create valid mageck inpout file">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/mageck_processing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/mageck_processing.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/tool_evluation.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/tool_evluation.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -242,7 +241,9 @@
       <workItem from="1740481274722" duration="811000" />
       <workItem from="1740566009517" duration="8450000" />
       <workItem from="1740652778718" duration="306000" />
-      <workItem from="1740735568998" duration="15476000" />
+      <workItem from="1740735568998" duration="17424000" />
+      <workItem from="1740992870128" duration="17573000" />
+      <workItem from="1741079811140" duration="12550000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -500,7 +501,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740569876030</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL-00033" summary="create valid mageck inpout file">
+      <option name="closed" value="true" />
+      <created>1740756423556</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1740756423556</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -553,7 +562,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/chopchop" />
     </ignored-roots>
-    <MESSAGE value="Truncated gene output" />
     <MESSAGE value="Chopchop integration v1" />
     <MESSAGE value="Add better scoring - broken api urls" />
     <MESSAGE value="Clippy" />
@@ -578,7 +586,8 @@
     <MESSAGE value="Updating logic" />
     <MESSAGE value="Start integration" />
     <MESSAGE value="Reversed calibration curve and stacked bargraphs for distributions" />
-    <option name="LAST_COMMIT_MESSAGE" value="Reversed calibration curve and stacked bargraphs for distributions" />
+    <MESSAGE value="create valid mageck inpout file" />
+    <option name="LAST_COMMIT_MESSAGE" value="create valid mageck inpout file" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/crispr_pipeline$chronos_genome_crisp.coverage" NAME="chronos_genome_crisp Coverage Results" MODIFIED="1739262010840" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/chronos_run" />

@@ -40,7 +40,7 @@ fn main() -> PolarsResult<()> {
         path: "./data/cegv2.txt".to_string()
     };
     let genomecrispr_datasets = GenomeCrisprDatasets {
-        path: "./data/genomecrispr/GenomeCRISPR_full05112017_brackets_test.csv".to_string(),
+        path: "./data/genomecrispr/GenomeCRISPR_full05112017_brackets.csv".to_string(),
 
     };
     let avana_dataset = AvanaDataset {
@@ -49,15 +49,15 @@ fn main() -> PolarsResult<()> {
     };
 
     let cegs = cegs.load()?;
-    let df = genomecrispr_datasets.load_validated("genome_crispr", cegs)?;
+    let df = genomecrispr_datasets.load_validated("genome_crispr_short", cegs)?;
     // let df = avana_dataset.load_validated("depmap", cegs)?;
     // 1) Write a tab-delimited file for MAGeCK
 
 
     //
-    // run_chopchop_meta(df_gc).expect("TODO: panic message");
+    run_chopchop_meta(df, "genome_cirspr_short").expect("TODO: panic message");
 
-    // tool_evluation::analyze_chopchop_results("./validator/chopchop_dataset_results_ceg.csv", "depmap-avana")?;
+    tool_evluation::analyze_chopchop_results("./validator/chopchop_genome_cirspor_short.csv", "genome_cirspr_short")?;
 
 
 
