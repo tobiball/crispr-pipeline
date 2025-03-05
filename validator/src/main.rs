@@ -57,7 +57,7 @@ fn main() -> PolarsResult<()> {
     //
     run_chopchop_meta(df, "genome_cirspr_short").expect("TODO: panic message");
 
-    tool_evluation::analyze_chopchop_results("./validator/chopchop_genome_cirspor_short.csv", "genome_cirspr_short")?;
+    tool_evluation::analyze_chopchop_results("./validator/chopchop_genome_cirspr_short.csv", "genome_cirspr_short")?;
 
 
 

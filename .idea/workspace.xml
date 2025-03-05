@@ -7,14 +7,13 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="create valid mageck inpout file">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Working efficacy scoring based on ceres">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/AvanaGuideMap_23Q4.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/CRISPRInferredGuideEfficacy_23Q4.csv" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/mageck_processing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/mageck_processing.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -93,9 +92,9 @@
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/shelf" />
+      <recent name="$PROJECT_DIR$/data/depmap" />
       <recent name="$PROJECT_DIR$/validator" />
       <recent name="$PROJECT_DIR$/data" />
-      <recent name="$PROJECT_DIR$/data/depmap" />
       <recent name="$PROJECT_DIR$/validator/src/prediction_tools" />
     </key>
   </component>
@@ -243,7 +242,8 @@
       <workItem from="1740652778718" duration="306000" />
       <workItem from="1740735568998" duration="17424000" />
       <workItem from="1740992870128" duration="17573000" />
-      <workItem from="1741079811140" duration="12550000" />
+      <workItem from="1741079811140" duration="14419000" />
+      <workItem from="1741185926852" duration="3770000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -509,7 +509,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740756423556</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="Working efficacy scoring based on ceres">
+      <option name="closed" value="true" />
+      <created>1741100188224</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1741100188224</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -562,8 +570,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/chopchop" />
     </ignored-roots>
-    <MESSAGE value="Chopchop integration v1" />
-    <MESSAGE value="Add better scoring - broken api urls" />
     <MESSAGE value="Clippy" />
     <MESSAGE value="Grna scoring enhancements" />
     <MESSAGE value="Fix expression and improve scoring" />
@@ -587,7 +593,9 @@
     <MESSAGE value="Start integration" />
     <MESSAGE value="Reversed calibration curve and stacked bargraphs for distributions" />
     <MESSAGE value="create valid mageck inpout file" />
-    <option name="LAST_COMMIT_MESSAGE" value="create valid mageck inpout file" />
+    <MESSAGE value="Woring efficacy scoring based on ceres" />
+    <MESSAGE value="Working efficacy scoring based on ceres" />
+    <option name="LAST_COMMIT_MESSAGE" value="Working efficacy scoring based on ceres" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/crispr_pipeline$chronos_genome_crisp.coverage" NAME="chronos_genome_crisp Coverage Results" MODIFIED="1739262010840" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/chronos_run" />

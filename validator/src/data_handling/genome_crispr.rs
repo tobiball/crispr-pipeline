@@ -46,6 +46,7 @@ fn create_sub_dataframe(df_original: DataFrame) -> PolarsResult<DataFrame> {
 }
 
 use polars::prelude::*;
+use polars::prelude::LiteralValue::Int;
 use crate::mageck_processing::run_mageck_pipeline;
 
 fn rescale_depletion_column(df: DataFrame) -> PolarsResult<DataFrame> {
@@ -134,16 +135,16 @@ impl Dataset for GenomeCrisprDatasets {
         let mut results_dfs = Vec::with_capacity(pubmeds.len());
 
         for (idx, exp_id) in pubmeds.iter().enumerate() {
-            info!("Processing experiment {}/{}: {}", idx + 1, pubmeds.len(), exp_id);
+            info!("Processing pubmed_id {}/{}: {}", idx + 1, pubmeds.len(), exp_id);
 
             // Filter dataframe to just this experiment
             let exp_df = df.clone().lazy()
-                .filter(col("pubmed").eq(lit(PlSmallStr::from_str(exp_id))))
+                .filter(col("pubmed").eq(lit(exp_id.parse::<i64>().unwrap())))
                 .collect()?;
 
 
             // Create a unique output prefix for this experiment
-            let output_prefix = format!("./validator/genomecrispr_exp_{}", exp_id.replace(" ", "_"));
+            let output_prefix = format!("./processing_artifacts/genomecrispr_pubmed_{}", exp_id.replace(" ", "_"));
 
             // Run MAGeCK for this experiment
             let result_df = match run_mageck_pipeline(
@@ -158,7 +159,7 @@ impl Dataset for GenomeCrisprDatasets {
             ) {
                 Ok(df) => df,
                 Err(e) => {
-                    error!("Error processing experiment {}: {}", exp_id, e);
+                    error!("Error processing pubmed_id {}: {}", exp_id, e);
                     continue; // Skip this experiment and continue with the next
                 }
             };

@@ -25,7 +25,12 @@ pub struct ChopchopOptions {
 
 pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> Result<(), Box<dyn std::error::Error>> {
     // Define the CSV output path
-    let output_csv_path = format!("./validator/chopchop_{}.csv",database_name);
+    let output_csv_path = format!("./processed_data/chopchop_{}.csv",database_name);
+    // Debug log the path
+    debug!("Creating directory: {:?}", output_csv_path);
+    std::fs::create_dir_all(&output_csv_path)?;
+    let exists = std::path::Path::new(&output_csv_path).exists();
+
 
     debug!("CSV will be written to: {}", output_csv_path);
 
@@ -38,7 +43,13 @@ pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> Result<(), Box<
     debug!("CSV header written.");
 
     // 1) CREATE OR OPEN A LOG FILE FOR UNMATCHED GUIDES
-    let missing_guides_log_path = format!("./validator/chopchop_missing_guides_log_{}.csv",database_name);
+
+    // Debug log the path
+    debug!("Creating directory: {:?}", "logs");
+    std::fs::create_dir_all("logs")?;
+    let exists = std::path::Path::new("logs").exists();
+
+    let missing_guides_log_path = format!("./logs/chopchop_missing_guides_log_{}.csv",database_name);
     let mut missing_guides_file = OpenOptions::new()
         .create(true)
         .append(true)

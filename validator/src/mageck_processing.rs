@@ -186,9 +186,7 @@ pub fn run_mageck_pipeline(
     gene_col: &str,
     count_cols: &[&str],
 ) -> PolarsResult<DataFrame> {
-    // 1) Write a tab-delimited file for MAGeck
-    let mageck_input_path = format!("{}.input.txt", output_prefix);
-    write_mageck_input(&df_in, &mageck_input_path, sgrna_col, gene_col, count_cols)?;
+
 
     // 2) Prepare the MAGeck options
     let mageck_opts = MageckOptions {
@@ -198,6 +196,20 @@ pub fn run_mageck_pipeline(
         ctrl_labels: ctrl_labels.to_vec(),
         rra_path: Some("/home/mrcrispr/crispr_pipeline/mageck/mageck_venv/bin/RRA".to_string()),
     };
+
+    // In your mageck_processing.rs, before running MAGeCK
+    let output_dir = std::path::Path::new(&mageck_opts.output_prefix).parent().unwrap_or_else(|| std::path::Path::new("."));
+    // Debug log the path
+    debug!("Creating directory: {:?}", output_dir);
+    std::fs::create_dir_all(output_dir)?;
+    let exists = std::path::Path::new(output_dir).exists();
+    debug!("Directory exists after creation: {}", exists);
+
+    // 1) Write a tab-delimited file for MAGeck
+    let mageck_input_path = format!("{}.input.txt", output_prefix);
+
+    write_mageck_input(&df_in, &mageck_input_path, sgrna_col, gene_col, count_cols)?;
+
 
     // 3) Run mageck test
     run_mageck_test(&mageck_opts, &mageck_input_path)
@@ -215,12 +227,12 @@ pub fn run_mageck_pipeline(
     let mut df_with_efficacy = calculate_efficacy_scores(df_merged)?;
 
 
-    let mut file = File::create("mageckinput_log.csv").expect("could not create file");
+    let mut file = File::create("processing_artifacts/mageckinput_log.csv").expect("could not create file");
 
     CsvWriter::new(&mut file)
         .include_header(true)
         .with_separator(b',')
-        .finish(&mut df_with_efficacy);
+        .finish(&mut df_with_efficacy)?;
 
 
 
@@ -452,6 +464,7 @@ use polars::prelude::{
     DataFrame, Series, PolarsResult,
     JoinArgs, JoinType,
 };
+use crate::models::polars_err;
 
 pub fn merge_mageck_results(
     df_original: DataFrame,
