@@ -2,7 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/chronos_run/chronos" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/DeepCRISPR" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/mageck" vcs="Git" />
   </component>
 </project>

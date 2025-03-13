@@ -8,6 +8,7 @@ use tracing::{error, debug, info};
 use std::process::Command;
 use std::env;
 use crate::helper_functions::*;
+use crate::models::polars_err;
 
 #[derive(Debug)]
 pub struct ChopchopOptions {
@@ -23,31 +24,29 @@ pub struct ChopchopOptions {
     pub max_mismatches: u8,
 }
 
-pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> Result<(), Box<dyn std::error::Error>> {
-    // Define the CSV output path
-    let output_csv_path = format!("./processed_data/chopchop_{}.csv",database_name);
-    // Debug log the path
-    debug!("Creating directory: {:?}", output_csv_path);
-    std::fs::create_dir_all(&output_csv_path)?;
-    let exists = std::path::Path::new(&output_csv_path).exists();
+pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> PolarsResult<()> {
+    // To this:
+    let output_dir = "./processed_data";
+    debug!("Creating directory: {:?}", output_dir);
+    std::fs::create_dir_all(&output_dir)?;
+    let output_csv_path = format!("{}/chopchop_{}.csv", output_dir, database_name);
 
 
     debug!("CSV will be written to: {}", output_csv_path);
 
     // Create a CSV writer
-    let mut wtr = csv::Writer::from_path(output_csv_path)?;
-    debug!("CSV Writer initialized successfully.");
+    let mut wtr = csv::Writer::from_path(output_csv_path)
+        .map_err(|e| PolarsError::ComputeError(format!("{}", e).into()))?;    debug!("CSV Writer initialized successfully.");
 
     // Write the header row
-    wtr.write_record(["chromosome", "start", "end", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])?;
-    debug!("CSV header written.");
+    wtr.write_record(["chromosome", "start", "end", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])
+        .map_err(|e| PolarsError::ComputeError(format!("{}", e).into()))?;    debug!("CSV header written.");
 
     // 1) CREATE OR OPEN A LOG FILE FOR UNMATCHED GUIDES
 
     // Debug log the path
     debug!("Creating directory: {:?}", "logs");
     std::fs::create_dir_all("logs")?;
-    let exists = std::path::Path::new("logs").exists();
 
     let missing_guides_log_path = format!("./logs/chopchop_missing_guides_log_{}.csv",database_name);
     let mut missing_guides_file = OpenOptions::new()
@@ -107,7 +106,7 @@ pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> Result<(), Box<
         // Ensure base directory exists
         if let Err(e) = fs::create_dir_all(base_output_dir) {
             error!("Failed to create base output directory {}: {}", base_output_dir, e);
-            return Err(Box::new(e));
+            return Err(PolarsError::ComputeError(format!("{}", e).into()));
         }
         debug!("Base output directory ensured: {}", base_output_dir);
 
@@ -132,7 +131,6 @@ pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> Result<(), Box<
         }
         debug!("Output directory created: {}", output_dir.display());
 
-        let chopchop_base_path = project_root().join("chopchop");
         let current_dir = env::current_dir()?;
 
         // Then define your Python script paths dynamically
@@ -198,7 +196,7 @@ pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> Result<(), Box<
                     efficacy_scaled.to_string(),
                     g.efficiency.to_string(),
                     (g.efficiency - efficacy_scaled).to_string(),
-                ])?;
+                ]).map_err(|e| polars_err(Box::new(e) as Box<dyn Error>))?;;;
                 wtr.flush()?;
                 debug!("Record written to CSV for guide: {}", guide_seq);
 

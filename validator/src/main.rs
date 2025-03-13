@@ -7,8 +7,9 @@ use crate::data_handling::genome_crispr::GenomeCrisprDatasets;
 use crate::data_handling::avana_depmap::{AvanaDataset};
 use crate::helper_functions::{project_root, write_config_json};
 use crate::mageck_processing::{run_mageck_test, write_mageck_input, MageckOptions};
-use crate::models::Dataset;
+use crate::models::{polars_err, Dataset};
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
+use crate::prediction_tools::deepcrispr_integration::run_deepcrispr_meta;
 
 mod tool_evluation;
 mod models;
@@ -49,17 +50,22 @@ fn main() -> PolarsResult<()> {
     };
 
     let cegs = cegs.load()?;
-    let df = genomecrispr_datasets.load_validated("genome_crispr_short", cegs)?;
+    // let df = genomecrispr_datasets.load_validated("genome_crispr_short", cegs)?;
     // let df = avana_dataset.load_validated("depmap", cegs)?;
-    // 1) Write a tab-delimited file for MAGeCK
 
 
     //
-    run_chopchop_meta(df, "genome_cirspr_short").expect("TODO: panic message");
-
-    tool_evluation::analyze_chopchop_results("./validator/chopchop_genome_cirspr_short.csv", "genome_cirspr_short")?;
+    // run_chopchop_meta(df.clone(), "genome_cirspr_short")?;
 
 
+    // Run DeepCRISPR
+    run_deepcrispr_meta("./deepcrispr_processed_data/chopchop_avana-depmap_results.csv", "avana-depmap")?;
+
+    // let tools = vec!["chopchop_efficiency","deepcrispr_prediction"];
+    //
+    // tool_evluation::analyze_tool_results("./DeepCRISPR/genomecrispr_predictions_ttest.csv", "avana-depmap",tools)?;
+    //
+    //
 
 
 

@@ -144,7 +144,7 @@ impl Dataset for GenomeCrisprDatasets {
 
 
             // Create a unique output prefix for this experiment
-            let output_prefix = format!("./processing_artifacts/genomecrispr_pubmed_{}", exp_id.replace(" ", "_"));
+            let output_prefix = format!("./mageck_processing_artifacts/genomecrispr_pubmed_{}", exp_id.replace(" ", "_"));
 
             // Run MAGeCK for this experiment
             let result_df = match run_mageck_pipeline(

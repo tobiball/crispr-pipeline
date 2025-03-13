@@ -45,7 +45,6 @@ const FDR_THRESHOLD: f64 = 0.05;       // FDR cutoff for "statistically signific
 const EXPONENT: f64 = 0.8;            // Exponent to shape the LFC distribution (0.8 "boosts" mid-range values slightly)
 const NON_SIGNIFICANT_CAP: f64 = 0.2; // Guides that are not significant get capped at 20% max
 const CLIP_FACTOR: f64 = 0.9;         // Clip the absolute min LFC to 90% for outlier resistance
-const DEFAULT_MIN_LFC: f64 = -3.0;    // Fallback if the LFC column is empty or cannot be computed
 
 
 //https://pubmed.ncbi.nlm.nih.gov/29083409/
@@ -227,7 +226,7 @@ pub fn run_mageck_pipeline(
     let mut df_with_efficacy = calculate_efficacy_scores(df_merged)?;
 
 
-    let mut file = File::create("processing_artifacts/mageckinput_log.csv").expect("could not create file");
+    let mut file = File::create("mageck_processing_artifacts/mageckinput_log.csv").expect("could not create file");
 
     CsvWriter::new(&mut file)
         .include_header(true)

@@ -2096,7 +2096,7 @@ venv/
 /validator/target/debug/.cargo-lock
 /validator/target/.rustc_info.json
 /validator/target/CACHEDIR.TAG
-/shelf/chopchop_dataset_results.csv
+/processed_data/chopchop_avana-depmap_results.csv
 /shelf/crispr_pipeline_image.tar
 /validator/Cargo.lock
 /data/depmap/AvanaGuideMap_23Q4.csv
