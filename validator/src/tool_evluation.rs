@@ -25,46 +25,50 @@ const FONT_SIZE_AXIS: u32 = 15;
 // --------------------------------------------------------
 //  Entrypoint
 // --------------------------------------------------------
-pub fn analyze_chopchop_results(csv_file_path: &str, dataset: &str) -> PolarsResult<()> {
+pub fn analyze_tool_results(csv_file_path: &str, dataset: &str, tools: Vec<&str>) -> PolarsResult<()> {
     // Create output directories
-    let results_directory = setup_directories(dataset)?;
 
     // Load and extract data
     let df = read_csv(csv_file_path)?;
     let dataset_vals = extract_column(&df, "dataset_efficacy")?;
-    let chopchop_vals = extract_column(&df, "chopchop_efficiency")?;
-    let differences = extract_column(&df, "difference")?;
 
-    if differences.is_empty() {
-        info!("No valid data. Exiting early.");
-        return Ok(());
+    for tool in tools {
+        let results_directory = setup_directories(tool)?;
+
+        let tool_values = extract_column(&df, tool)?;
+        // let differences = extract_column(&df, "difference")?;
+        //
+        // if differences.is_empty() {
+        //     info!("No valid data. Exiting early.");
+        //     return Ok(());
+        // }
+
+        // // Display basic statistics
+        // display_stats(&differences, &dataset_vals, &chopchop_vals);
+        //
+        // // Generate all plots and analysis
+        // fraction_plots(&differences, &dataset_vals, &chopchop_vals, &results_directory, dataset)?;
+        calibrated_plots(&dataset_vals, &tool_values, &results_directory, tool)?;
+        produce_reversed_calibration_analysis(&dataset_vals, &tool_values, CALIBRATION_BINS, &results_directory, tool)?;
+        mapping_regression_plots(&dataset_vals, &tool_values, &results_directory, tool)?;
+        produce_calibration_analysis(&dataset_vals, &tool_values, DATASET_CUTOFF, CALIBRATION_BINS, &results_directory, tool)?;
+
+        // Compute best threshold and confusion matrix
+        compute_and_display_metrics(&dataset_vals, &tool_values, &results_directory, dataset)?;
+
+        // Generate stacked charts
+        generate_stacked_charts(&df, &results_directory)?;
+
+        info!("Done. See '{}' for outputs.", results_directory);
     }
-
-    // Display basic statistics
-    display_stats(&differences, &dataset_vals, &chopchop_vals);
-
-    // Generate all plots and analysis
-    fraction_plots(&differences, &dataset_vals, &chopchop_vals, &results_directory, dataset)?;
-    calibrated_plots(&dataset_vals, &chopchop_vals, &results_directory, dataset)?;
-    produce_reversed_calibration_analysis(&dataset_vals, &chopchop_vals, CALIBRATION_BINS, &results_directory, dataset)?;
-    mapping_regression_plots(&dataset_vals, &chopchop_vals, &results_directory, dataset)?;
-    produce_calibration_analysis(&dataset_vals, &chopchop_vals, DATASET_CUTOFF, CALIBRATION_BINS, &results_directory, dataset)?;
-
-    // Compute best threshold and confusion matrix
-    compute_and_display_metrics(&dataset_vals, &chopchop_vals, &results_directory, dataset)?;
-
-    // Generate stacked charts
-    generate_stacked_charts(&df, &results_directory)?;
-
-    info!("Done. See '{}' for outputs.", results_directory);
     Ok(())
-}
 
+}
 // --------------------------------------------------------
 //  Setup and Data Handling
 // --------------------------------------------------------
-fn setup_directories(dataset: &str) -> PolarsResult<String> {
-    let results_directory = format!("results_{}", dataset);
+fn setup_directories(tool: &str) -> PolarsResult<String> {
+    let results_directory = format!("results_{}", tool);
     for subdir in &["", "fraction", "calibrated", "mapping", "stacked"] {
         let dir = if subdir.is_empty() {
             results_directory.clone()

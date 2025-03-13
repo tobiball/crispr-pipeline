@@ -2,12 +2,7 @@ use polars::prelude::*;
 use plotters::prelude::*;
 use std::error::Error;
 
-/// Analyzes the distribution of efficacy values from the given DataFrame.
-/// The DataFrame is expected to have an "efficacy" column containing floating point numbers.
-///
-/// This function prints summary statistics and generates one plot: a continuous histogram
-/// (using 30 equal‑width bins) with vertical dashed lines (simulated by short line segments)
-/// marking each boundary that divides the distribution into 10 equal parts (i.e. 9 boundaries).
+
 pub fn analyze_efficacy_distribution_df(df: DataFrame) -> PolarsResult<()> {
     // Extract the "efficacy" column as f64 values.
     let efficacy_series = df.column("efficacy")?.f64()?;
