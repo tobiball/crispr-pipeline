@@ -32,3 +32,7 @@ processed_data/chopchop_avana-depmap_results.csv
 /results_deepcrispr_prediction/mapping/reversed_calibration_curve_with_distribution.png
 /results_deepcrispr_prediction/mapping/reversed_calibration_table.csv
 /processed_data/chopchop_genome_cirspr_short.csv
+/data/*
+/deepcrispr_processed_data/*
+/DeepCRISPR/
+/mageck/
