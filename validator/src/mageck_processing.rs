@@ -150,11 +150,11 @@ pub fn calculate_efficacy_scores(mut df: DataFrame) -> PolarsResult<DataFrame> {
     // Log statistics
     info!("Efficacy score distribution:");
     info!("  Min: {:.2}, Max: {:.2}",
-          new_efficacy.min().unwrap_or(0.0),
-          new_efficacy.max().unwrap_or(0.0));
+          new_efficacy.min().unwrap(),
+          new_efficacy.max().unwrap());
     info!("  Mean: {:.2}, Median: {:.2}",
-          new_efficacy.mean().unwrap_or(0.0),
-          new_efficacy.median().unwrap_or(0.0));
+          new_efficacy.mean().unwrap(),
+          new_efficacy.median().unwrap());
 
     // Log distribution by category
     let mut bins = vec![0; 10];
@@ -442,7 +442,7 @@ pub fn parse_mageck_sgrna_summary(file_path: &str) -> PolarsResult<Vec<MageckGui
         }
 
         let sgrna = fields.get(0).unwrap_or(&"").to_string();
-        let neg_lfc = fields.get(log2fc_idx).unwrap_or(&"0").parse::<f64>().unwrap_or(0.0);
+        let neg_lfc = fields.get(log2fc_idx).unwrap_or(&"0").parse::<f64>().unwrap();
         let neg_pval = fields.get(pval_idx).unwrap_or(&"1").parse::<f64>().unwrap_or(1.0);
         let fdr = fields.get(fdr_idx).unwrap_or(&"1").parse::<f64>().unwrap_or(1.0);
 

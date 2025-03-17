@@ -220,7 +220,7 @@ fn rank_data(vals: &[f64]) -> Vec<f64> {
     ranks
 }
 
-fn pearson_correlation(x: &[f64], y: &[f64]) -> Option<f64> {
+pub fn pearson_correlation(x: &[f64], y: &[f64]) -> Option<f64> {
     if x.is_empty() || x.len() != y.len() {
         return None;
     }
@@ -1659,7 +1659,7 @@ pub fn plot_stacked_efficacy_vs_chopchop_linear(
     // Find maximum count for y-axis
     let max_count = bin_counts.iter()
         .map(|sub| sub.iter().sum::<usize>())
-        .max().unwrap_or(0);
+        .max().unwrap();
 
     // Create drawing area
     let root_area = BitMapBackend::new(output_path, (STACKED_PLOT_WIDTH, STACKED_PLOT_HEIGHT))

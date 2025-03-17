@@ -5,13 +5,14 @@ use tracing_subscriber::EnvFilter;
 use crate::data_handling::genome_crispr::GenomeCrisprDatasets;
 
 use crate::data_handling::avana_depmap::{AvanaDataset};
-use crate::helper_functions::{project_root, write_config_json};
+use crate::helper_functions::{project_root, read_csv, write_config_json};
 use crate::mageck_processing::{run_mageck_test, write_mageck_input, MageckOptions};
 use crate::models::{polars_err, Dataset};
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
+use crate::prediction_tools::crispor_integration::run_crispor_meta;
 use crate::prediction_tools::deepcrispr_integration::run_deepcrispr_meta;
+use crate::prediction_tools::terst;
 
-mod tool_evluation;
 mod models;
 mod data_handling;
 mod prediction_tools;
@@ -51,7 +52,18 @@ fn main() -> PolarsResult<()> {
 
     let cegs = cegs.load()?;
     // let df = genomecrispr_datasets.load_validated("genome_crispr_short", cegs)?;
-    // let df = avana_dataset.load_validated("depmap", cegs)?;
+    let df = avana_dataset.load_validated("depmap", cegs)?;
+
+    // analysis::umap::run_kmer_analysis(&df, "sgRNA", "efficacy", "kmer_analysis").map_err(polars_err)?;
+
+    let df_n = read_csv("./processed_data/chopchop_avana-depmap_results.csv")?;
+
+    // run_crispor_meta(df_n,"avana-depmap");
+
+
+
+
+
 
 
     //
@@ -59,13 +71,15 @@ fn main() -> PolarsResult<()> {
 
 
     // Run DeepCRISPR
-    run_deepcrispr_meta("./deepcrispr_processed_data/chopchop_avana-depmap_results.csv", "avana-depmap")?;
+    // run_deepcrispr_meta("./processed_data/chopchop_avana-depmap_results.csv", "avana-depmap")?;
 
     // let tools = vec!["chopchop_efficiency","deepcrispr_prediction"];
     //
     // tool_evluation::analyze_tool_results("./DeepCRISPR/genomecrispr_predictions_ttest.csv", "avana-depmap",tools)?;
     //
     //
+
+    terst::terst(df_n);
 
 
 

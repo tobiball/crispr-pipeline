@@ -328,16 +328,16 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<ChopchopGuide>, Bo
         let guide = ChopchopGuide {
             sequence: fields[1].to_string(),
             chromosome: fields[2].split(':').next().unwrap_or("").to_string(),
-            start: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap_or(0),
-            end: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap_or(0)
+            start: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap(),
+            end: fields[2].split(':').nth(1).unwrap_or("0").parse::<u64>().unwrap()
                 + fields[1].len() as u64,
             strand: fields[3].chars().next().unwrap_or('+'),
-            gc_content: fields[4].parse::<f64>().unwrap_or(0.0),
-            self_complementarity: fields[5].parse::<u32>().unwrap_or(0),
-            mm0: fields[6].parse::<u32>().unwrap_or(0),
-            mm1: fields[7].parse::<u32>().unwrap_or(0),
-            mm2: fields[8].parse::<u32>().unwrap_or(0),
-            mm3: fields[9].parse::<u32>().unwrap_or(0),
+            gc_content: fields[4].parse::<f64>().unwrap(),
+            self_complementarity: fields[5].parse::<u32>().unwrap(),
+            mm0: fields[6].parse::<u32>().unwrap(),
+            mm1: fields[7].parse::<u32>().unwrap(),
+            mm2: fields[8].parse::<u32>().unwrap(),
+            mm3: fields[9].parse::<u32>().unwrap(),
             efficiency: fields[10].parse::<f64>().unwrap(),
         };
         debug!("Parsed GuideRNA: {:?}", guide);
