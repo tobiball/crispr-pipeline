@@ -9,9 +9,8 @@ use crate::helper_functions::{project_root, read_csv, write_config_json};
 use crate::mageck_processing::{run_mageck_test, write_mageck_input, MageckOptions};
 use crate::models::{polars_err, Dataset};
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
-use crate::prediction_tools::crispor_integration::run_crispor_meta;
 use crate::prediction_tools::deepcrispr_integration::run_deepcrispr_meta;
-use crate::prediction_tools::terst;
+use crate::prediction_tools::crispor_integration;
 
 mod models;
 mod data_handling;
@@ -79,7 +78,7 @@ fn main() -> PolarsResult<()> {
     //
     //
 
-    terst::terst(df_n);
+    crispor_integration::run_crispor_meta(df_n);
 
 
 
