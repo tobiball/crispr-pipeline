@@ -51,11 +51,11 @@ fn main() -> PolarsResult<()> {
 
     let cegs = cegs.load()?;
     // let df = genomecrispr_datasets.load_validated("genome_crispr_short", cegs)?;
-    let df = avana_dataset.load_validated("depmap", cegs)?;
+    // let df = avana_dataset.load_validated("depmap", cegs)?;
 
     // analysis::umap::run_kmer_analysis(&df, "sgRNA", "efficacy", "kmer_analysis").map_err(polars_err)?;
 
-    let df_n = read_csv("./processed_data/chopchop_avana-depmap_results.csv")?;
+    let df = read_csv("./processed_data/deepcrispr_output_avana-depmap.csv")?;
 
     // run_crispor_meta(df_n,"avana-depmap");
 
@@ -78,7 +78,7 @@ fn main() -> PolarsResult<()> {
     //
     //
 
-    crispor_integration::run_crispor_meta(df_n);
+    crispor_integration::run_crispor_meta(df, "avana-depmap")?;
 
 
 

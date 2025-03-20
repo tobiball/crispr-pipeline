@@ -7,11 +7,12 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Runs Crispor succesfully">
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Read in Crispor results">
+      <change afterPath="$PROJECT_DIR$/chopchop/chopchop_env_requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/terst.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/crispor_integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/crispor_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/crispor_integration.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,10 +93,10 @@
       <recent name="$PROJECT_DIR$/chopchop" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/processed_data" />
       <recent name="$PROJECT_DIR$/crispor" />
       <recent name="$PROJECT_DIR$/validator/src/analysis" />
       <recent name="$PROJECT_DIR$/shelf" />
-      <recent name="$PROJECT_DIR$/processed_data" />
       <recent name="$PROJECT_DIR$/data/depmap" />
     </key>
   </component>
@@ -257,7 +258,8 @@
       <workItem from="1741954953555" duration="916000" />
       <workItem from="1742207648167" duration="14286000" />
       <workItem from="1742223479656" duration="954000" />
-      <workItem from="1742293027506" duration="2307000" />
+      <workItem from="1742293027506" duration="13495000" />
+      <workItem from="1742377804277" duration="6582000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -571,7 +573,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742223080788</updated>
     </task>
-    <option name="localTasksCounter" value="40" />
+    <task id="LOCAL-00040" summary="Read in Crispor results">
+      <option name="closed" value="true" />
+      <created>1742296043335</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1742296043335</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -631,7 +641,6 @@
       <path value="$PROJECT_DIR$/DeepCRISPR" />
       <path value="$PROJECT_DIR$/mageck" />
     </ignored-roots>
-    <MESSAGE value="Match avana and chopchop grna at exact genomic location" />
     <MESSAGE value="Retrieve efficiency and configure modular structure" />
     <MESSAGE value="Modular split poc" />
     <MESSAGE value="fix out path" />
@@ -656,7 +665,8 @@
     <MESSAGE value="Deep Crispr integration" />
     <MESSAGE value="Refactor" />
     <MESSAGE value="Runs Crispor succesfully" />
-    <option name="LAST_COMMIT_MESSAGE" value="Runs Crispor succesfully" />
+    <MESSAGE value="Read in Crispor results" />
+    <option name="LAST_COMMIT_MESSAGE" value="Read in Crispor results" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

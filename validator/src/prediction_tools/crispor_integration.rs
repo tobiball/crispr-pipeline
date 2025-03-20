@@ -1,88 +1,79 @@
+use polars::prelude::{DataFrame, CsvWriter};
+use polars::prelude::*;
 use std::env;
-use std::fs;
-use std::fs::{create_dir, create_dir_all, File};
+use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
-use log::{debug, error};
-use polars::error::PolarsResult;
-use polars::frame::DataFrame;
-use polars_ops::prelude::DataFrameJoinOps;
-use crate::helper_functions::{project_root, read_csv, read_txt};
+
+use crate::helper_functions::{project_root, read_txt};
+use crate::models::polars_err; // or your error helpers
 
 const GENOME: &str = "hg38";
 
-pub fn run_crispor_meta(df: DataFrame) -> PolarsResult<()> {
+use std::time::Instant;
+use log::{error, info};
+// ...
 
+pub fn run_crispor_meta(df: DataFrame, database_name: &str) -> PolarsResult<()> {
+    // (1) Limit the DataFrame to 450 guides for testing:
+    //     (If your df has <= 450 rows, you can skip or adjust.)
 
-    // Set up paths – adjust these to your environment
+    // (2) Start timing
+    let start_time = Instant::now();
+
+    // ----------------------------
+    // Build the multi‐record FASTA
+    // ----------------------------
+    let guide_column = df.column("guide")?;
+    let guides_str = guide_column.str()?;
+
+    let mut fasta_content = String::new();
+    for (i, guide_opt) in guides_str.into_iter().enumerate() {
+        if let Some(guide_str) = guide_opt {
+            fasta_content.push_str(&format!(">guide{}\n{}\n", i, guide_str));
+        }
+    }
+
+    // Write FASTA to file
+    let fasta_file = format!("{}/crispor/all_guides.fasta", project_root().display());
+    std::fs::write(&fasta_file, fasta_content.as_bytes())?;
+
+    // ----------------------------
+    // Run CRISPOR once
+    // ----------------------------
+    let output_file = format!("{}/temp/crispor/all_guides.tsv", project_root().display());
     let python_executable = format!("{}/crispor/crispor_env/bin/python", project_root().display());
     let crispor_script = format!("{}/crispor/crispor.py", project_root().display());
-    let crispor_output = format!("{}/temp/crispor", project_root().display());
-    create_dir_all(crispor_output.clone())?;
+    let status = Command::new(&python_executable)
+        .arg(&crispor_script)
+        .arg(GENOME)
+        .arg(&fasta_file)
+        .arg(&output_file)
+        .status()
+        .expect("Failed to execute CRISPOR command");
 
-    // Check that the Python executable exists
-    if !Path::new(&python_executable).exists() {
-        error!("Error: Python executable not found at '{}'", python_executable);
-        std::process::exit(1);
+    if !status.success() {
+        error!("CRISPOR command failed with status: {:?}", status);
+        // handle error accordingly
     }
-    // Check that the CRISPOR script exists
-    if !Path::new(&crispor_script).exists() {
-        error!("Error: CRISPOR script not found at '{}'", crispor_script);
-        std::process::exit(1);
-    }
 
-    // Prepare a FASTA file for the guide RNA.
+    // ----------------------------
+    // Read CRISPOR output & join
+    // ----------------------------
+    let crispor_results = read_txt(&output_file)?;
+    let mut df_joined = df.left_join(&crispor_results, ["guide"], ["targetSeq"])?;
 
-    for i in 0..df.height() {
-        let guide_rna_raw = df.column("guide").unwrap().get(i).unwrap().to_string();
-        let guide_rna = guide_rna_raw.trim_matches('"').trim();
-        // let eff: f64 = df.column("dataset_efficacy").unwrap().get(i).unwrap().try_extract().unwrap();
+    // ----------------------------
+    // Write final results once
+    // ----------------------------
+    let results_csv_path = format!("{}/processed_data/crispor_{}.csv", project_root().display(), database_name);
+    let file = File::create(&results_csv_path)?;
+    CsvWriter::new(file).finish(&mut df_joined)?;
 
-        // Or with more descriptive error messages
-        let fasta_file = format!("{}/crispor/guide_input.fasta", project_root().display());
-        let fasta_content = format!(">guide\n{}\n", guide_rna);
-        fs::write(&fasta_file, fasta_content.as_bytes())
-            .expect("Failed to write the FASTA file");
+    // (3) Print timing results
+    let elapsed = start_time.elapsed();
+    info!("CRISPOR completed in: {:?}", elapsed);
 
-        // Define output file for CRISPOR results
-        let output_file = format!("{}/guide_output.tsv", crispor_output);
-
-        // Print the command being executed for debugging
-        debug!("Executing command:");
-        debug!("{} {} {} {} {}",
-                 python_executable, crispor_script, GENOME, fasta_file, output_file);
-
-        // Run CRISPOR
-        let status = Command::new(&python_executable)
-            .arg(&crispor_script)
-            .arg(GENOME)
-            .arg(&fasta_file)
-            .arg(&output_file)
-            .current_dir(project_root().as_path())
-            .env("PYTHONPATH", project_root().as_path())
-            .env("PATH", format!("{}/bin/Linux:{}", project_root().display(), env::var("PATH").unwrap_or_default()))
-            .status()
-            .expect("Failed to execute CRISPOR command");
-
-        if status.success() {
-            debug!("CRISPOR finished successfully. Results in: {}", output_file);
-        } else {
-            error!("CRISPOR command failed with status: {}", status);
-        }
-        
-        
-        let crispor_result = read_txt(&output_file)?;
-
-        debug!("CRISPOR result was: {:?}", crispor_result);
-        df.left_join(
-            &crispor_result,
-            ["guide"],
-            ["target_seq"]
-        )?;
-
-
-        debug!("Output: {}", df);
-    }
     Ok(())
 }
