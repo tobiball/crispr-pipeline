@@ -25,7 +25,7 @@ pub fn run_crispor_meta(df: DataFrame, database_name: &str) -> PolarsResult<()> 
     // ----------------------------
     // Build the multi‐record FASTA
     // ----------------------------
-    let guide_column = df.column("guide")?;
+    let guide_column = df.column("sequence_with_pam")?;
     let guides_str = guide_column.str()?;
 
     let mut fasta_content = String::new();
@@ -62,7 +62,7 @@ pub fn run_crispor_meta(df: DataFrame, database_name: &str) -> PolarsResult<()> 
     // Read CRISPOR output & join
     // ----------------------------
     let crispor_results = read_txt(&output_file)?;
-    let mut df_joined = df.left_join(&crispor_results, ["guide"], ["targetSeq"])?;
+    let mut df_joined = df.left_join(&crispor_results, ["sequence_with_pam"], ["targetSeq"])?;
 
     // ----------------------------
     // Write final results once

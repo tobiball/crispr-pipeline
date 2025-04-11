@@ -7,12 +7,24 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Read in Crispor results">
-      <change afterPath="$PROJECT_DIR$/chopchop/chopchop_env_requirements.txt" afterDir="false" />
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Improve program transferability">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crispor" beforeDir="false" afterPath="$PROJECT_DIR$/crispor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/analysis/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/analysis/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/analysis/tool_evluation.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/analysis/tool_evaluation.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/cegs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/cegs.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/helper_functions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/helper_functions.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/chopchop_integration.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/crispor_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/crispor_integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/deepcrispr_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/deepcrispr_integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/mod.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -23,9 +35,9 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Python Script" />
-        <option value="Rust File in Dumb Mode" />
         <option value="Rust File" />
+        <option value="Rust File in Dumb Mode" />
+        <option value="Python Script" />
       </list>
     </option>
   </component>
@@ -81,8 +93,13 @@
     &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
     &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
     &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;language.rust.cargo.check&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
+      &quot;Rust&quot;
+    ]
   }
 }</component>
   <component name="RecentsManager">
@@ -260,6 +277,26 @@
       <workItem from="1742223479656" duration="954000" />
       <workItem from="1742293027506" duration="13495000" />
       <workItem from="1742377804277" duration="6582000" />
+      <workItem from="1742466877648" duration="12113000" />
+      <workItem from="1742556277171" duration="23391000" />
+      <workItem from="1742809298951" duration="7275000" />
+      <workItem from="1742842024549" duration="1341000" />
+      <workItem from="1742894310706" duration="13279000" />
+      <workItem from="1742913119980" duration="4256000" />
+      <workItem from="1742981654258" duration="15942000" />
+      <workItem from="1743068748665" duration="13226000" />
+      <workItem from="1743686225540" duration="2737000" />
+      <workItem from="1743769754004" duration="6031000" />
+      <workItem from="1744019713425" duration="4229000" />
+      <workItem from="1744032777057" duration="6700000" />
+      <workItem from="1744040898755" duration="6608000" />
+      <workItem from="1744096289386" duration="10677000" />
+      <workItem from="1744193723475" duration="42000" />
+      <workItem from="1744193776961" duration="850000" />
+      <workItem from="1744194766135" duration="14185000" />
+      <workItem from="1744279042143" duration="8358000" />
+      <workItem from="1744301429379" duration="7506000" />
+      <workItem from="1744366435880" duration="13079000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -581,7 +618,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742296043335</updated>
     </task>
-    <option name="localTasksCounter" value="41" />
+    <task id="LOCAL-00041" summary="Improve program transferability">
+      <option name="closed" value="true" />
+      <created>1742467505748</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1742467505748</updated>
+    </task>
+    <option name="localTasksCounter" value="42" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -641,7 +686,6 @@
       <path value="$PROJECT_DIR$/DeepCRISPR" />
       <path value="$PROJECT_DIR$/mageck" />
     </ignored-roots>
-    <MESSAGE value="Retrieve efficiency and configure modular structure" />
     <MESSAGE value="Modular split poc" />
     <MESSAGE value="fix out path" />
     <MESSAGE value="use relative paths" />
@@ -666,14 +710,15 @@
     <MESSAGE value="Refactor" />
     <MESSAGE value="Runs Crispor succesfully" />
     <MESSAGE value="Read in Crispor results" />
-    <option name="LAST_COMMIT_MESSAGE" value="Read in Crispor results" />
+    <MESSAGE value="Improve program transferability" />
+    <option name="LAST_COMMIT_MESSAGE" value="Improve program transferability" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/validator/src/analysis/umap.rs</url>
-          <line>69</line>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/TransCrispr/PureNet.py</url>
+          <line>77</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>

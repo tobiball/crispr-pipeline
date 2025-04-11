@@ -5,7 +5,7 @@ use tracing::{error, info};
 
 pub fn run_deepcrispr_meta(df: &str, database_name: &str) -> PolarsResult<()> {
     // Create minimal directories and file paths
-    let output_dir = "./deepcrispr_processed_data";
+    let output_dir = "./processed_data";
     std::fs::create_dir_all(output_dir)?;
 
     // let input_path = format!("{}/deepcrispr_input_{}.csv", processing_dir, database_name);

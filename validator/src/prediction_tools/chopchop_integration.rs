@@ -24,39 +24,17 @@ pub struct ChopchopOptions {
     pub max_mismatches: u8,
 }
 
-pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> PolarsResult<()> {
-    // To this:
+pub fn run_chopchop_meta(df: DataFrame, database_name: &str) -> PolarsResult<DataFrame> {
+    // Create output directory
     let output_dir = "./processed_data";
     debug!("Creating directory: {:?}", output_dir);
     std::fs::create_dir_all(&output_dir)?;
-    let output_csv_path = format!("{}/chopchop_{}.csv", output_dir, database_name);
 
+    // Create a mutable copy of the dataframe
+    let mut result_df = df.clone();
 
-    debug!("CSV will be written to: {}", output_csv_path);
-
-    // Create a CSV writer
-    let mut wtr = csv::Writer::from_path(output_csv_path)
-        .map_err(|e| PolarsError::ComputeError(format!("{}", e).into()))?;    debug!("CSV Writer initialized successfully.");
-
-    // Write the header row
-    wtr.write_record(["chromosome", "start", "end", "guide", "dataset_efficacy", "chopchop_efficiency", "difference"])
-        .map_err(|e| PolarsError::ComputeError(format!("{}", e).into()))?;    debug!("CSV header written.");
-
-    // 1) CREATE OR OPEN A LOG FILE FOR UNMATCHED GUIDES
-
-    // Debug log the path
-    debug!("Creating directory: {:?}", "logs");
-    std::fs::create_dir_all("logs")?;
-
-    let missing_guides_log_path = format!("./logs/chopchop_missing_guides_log_{}.csv",database_name);
-    let mut missing_guides_file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(missing_guides_log_path)
-        .map_err(|e| {
-            error!("Could not create/open missing guides logfile: {}", e);
-            e
-        })?;
+    // Create a new Series with null values for chopchop_efficiency
+    let mut chopchop_eff_vec: Vec<Option<f64>> = vec![None; result_df.height()];
 
     let total_rows = df.height();
     info!("Total number of sgRNAs to process: {}", total_rows);
@@ -82,20 +60,12 @@ pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> PolarsResult<()
             }
         };
 
-        let raw_guide = df.column("sgRNA")?.get(i)?.to_string();
+        let raw_guide = df.column("sequence_with_pam")?.get(i)?.to_string();
         let guide = raw_guide.trim_matches('"');
-        let efficacy: f64 = match df.column("efficacy")?.get(i)? {
-            AnyValue::Float64(eff) => eff,
-            other => {
-                error!("Unexpected type for efficacy at row {}: {:?}", i, other);
-                continue;
-            }
-        };
-        let efficacy_scaled = efficacy;
 
         debug!(
-            "Row {}: chromosome={}, start={}, end={}, sgRNA={}, efficacy_scaled={}",
-            i, chromosome, start, end, guide, efficacy_scaled
+            "Row {}: chromosome={}, start={}, end={}, sgRNA={}",
+            i, chromosome, start, end, guide
         );
 
         // Build the target region in the format "chr:start-end"
@@ -112,28 +82,19 @@ pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> PolarsResult<()
 
         let path = format!("{}/{}/{}", base_output_dir, chromosome, i);
 
-        // 1) Create the directory if it doesn’t exist
+        // Create the directory if it doesn't exist
         fs::create_dir_all(&path).map_err(|e| {
             error!("Failed to create output directory {}: {}", &path, e);
             e
         })?;
 
-        // 2) Now canonicalize (optional)
+        // Now canonicalize
         let output_dir = fs::canonicalize(&path)?;
-
-        // 3) Use `output_dir` below
-        debug!("Output directory created: {}", output_dir.display());
-
-        // Ensure the target directory exists
-        if let Err(e) = fs::create_dir_all(&output_dir) {
-            error!("Failed to create output directory {}: {}", output_dir.clone().display(), e);
-            continue; // Skip to the next target
-        }
         debug!("Output directory created: {}", output_dir.display());
 
         let current_dir = env::current_dir()?;
 
-        // Then define your Python script paths dynamically
+        // Define Python script paths dynamically
         let chopchop_options = ChopchopOptions {
             python_executable: project_root()
                 .join("chopchop/chopchop_env/bin/python2.7")
@@ -174,31 +135,14 @@ pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> PolarsResult<()
         let mut matched = false;
         for g in &guides {
             // Some CHOPCHOP outputs may append the PAM, so we need to handle that
-            let guide_seq = if g.sequence.len() == guide.len() {
-                &g.sequence
-            } else {
-                &g.sequence[..g.sequence.len() - 3]
-            };
+            let choppchop_guide = &g.sequence;
 
-            if guide_seq == guide {
-                debug!("Match found for guide: {}", guide_seq);
-
+            if choppchop_guide == guide {
+                debug!("Match found for guide: {}", choppchop_guide);
                 debug!("Tool Efficiency: {}", g.efficiency);
-                debug!("Dataset efficacy: {}", efficacy_scaled);
-                debug!("Difference (Tool vs Dataset): {}", g.efficiency - efficacy_scaled);
 
-                // Write to CSV
-                wtr.write_record(&[
-                    chromosome.clone(),
-                    start.to_string(),
-                    end.to_string(),
-                    g.sequence.to_string(),
-                    efficacy_scaled.to_string(),
-                    g.efficiency.to_string(),
-                    (g.efficiency - efficacy_scaled).to_string(),
-                ]).map_err(|e| polars_err(Box::new(e) as Box<dyn Error>))?;;;
-                wtr.flush()?;
-                debug!("Record written to CSV for guide: {}", guide_seq);
+                // Update the chopchop_efficiency value for this row in our vector
+                chopchop_eff_vec[i] = Some(g.efficiency);
 
                 matched = true;
                 break; // Assuming one match per sgRNA is sufficient
@@ -206,29 +150,57 @@ pub fn run_chopchop_meta(df: DataFrame, database_name : &str) -> PolarsResult<()
         }
 
         if !matched {
-            // 2) LOG THE UNMATCHED GUIDE TO YOUR SEPARATE LOGFILE
-            error!("No matching guide found for sgRNA: {}", guide);
-            writeln!(
-                missing_guides_file,
-                "No match found for Guide='{}' at {}:{}-{}  with efficacy: {}",
-                guide, chromosome, start, end, efficacy_scaled
-            )?;
-            // Optionally, flush if you want immediate writes
-            missing_guides_file.flush()?;
+            debug!("No matching guide found for sgRNA: {}", guide);
+            // chopchop_eff_vec[i] remains None
         }
 
+
         counter += 1.0;
-        debug!("Count {}", counter);
         if counter % 50.0 == 0.0 {
             info!("Progress {:.2}%", 100.0 * counter / total_rows as f64);
         }
     }
 
-    // Flush the CSV writer to ensure all data is written to disk
-    wtr.flush()?;
-    debug!("CSV Writer flushed successfully.");
 
-    Ok(())
+    // Add the chopchop_efficiency column to the dataframe
+    // Convert chopchop_efficiency to explicit nullable Float64
+    let chopchop_eff_series = Series::new(
+        PlSmallStr::from("chopchop_efficiency"),
+        Float64Chunked::from_vec(PlSmallStr::from(""), chopchop_eff_vec.iter()
+            .map(|opt| opt.unwrap_or(f64::NAN))
+            .collect::<Vec<f64>>()
+        )
+    ).cast(&DataType::Float64).unwrap();
+
+
+    let updated_df = result_df.with_column(chopchop_eff_series)?.clone();
+    result_df = updated_df;
+
+    debug!("Updated DF: {}", result_df);
+
+    let efficacy_series = df.column("efficacy")?.clone();
+    let chopchop_series = result_df.column("chopchop_efficiency")?.clone();
+
+
+    let output_csv_path = format!("{}/chopchop_{}.csv", output_dir, database_name);
+    debug!("Saving results to CSV: {}", output_csv_path);
+
+
+    // Debug column types before saving
+    for col_name in result_df.get_column_names() {
+        debug!("Column '{}' is of type: {:?}", col_name, result_df.column(col_name).unwrap().dtype());
+    }
+
+    // Before saving to CSV, drop the split_parts column
+    let mut df_for_csv = result_df.clone();
+    if df_for_csv.get_column_names().contains(&&PlSmallStr::from("split_parts")) {
+        df_for_csv = df_for_csv.drop("split_parts")?;
+    }
+
+    // Then write to CSV
+    let file = File::create(&output_csv_path)?;
+    CsvWriter::new(file).finish(&mut df_for_csv)?;
+    Ok(result_df)
 }
 
 pub fn run_chopchop(options: &ChopchopOptions) -> Result<(), Box<dyn Error>> {
@@ -337,7 +309,7 @@ pub fn parse_chopchop_results(output_dir: &str) -> Result<Vec<ChopchopGuide>, Bo
             mm0: fields[6].parse::<u32>().unwrap(),
             mm1: fields[7].parse::<u32>().unwrap(),
             mm2: fields[8].parse::<u32>().unwrap(),
-            mm3: fields[9].parse::<u32>().unwrap(),
+            mm3: fields[9].parse::<u32>().unwrap_or(999),
             efficiency: fields[10].parse::<f64>().unwrap(),
         };
         debug!("Parsed GuideRNA: {:?}", guide);

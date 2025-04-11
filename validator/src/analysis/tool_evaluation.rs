@@ -1,3 +1,5 @@
+
+use polars::datatypes::DataType;
 use crate::models::polars_err;
 use crate::helper_functions::read_csv;
 use polars::prelude::{DataFrame, PolarsError, PolarsResult};
@@ -5,11 +7,9 @@ use plotters::prelude::*;
 use std::error::Error;
 use std::fs;
 use std::io::Write;
-use tracing::{info};
+use tracing::{info, warn}; // <-- we use `warn!` for more visible logs
 
-// --------------------------------------------------------
-//  Constants
-// --------------------------------------------------------
+// Constants etc. remain unchanged...
 const FRACTION_CUTOFF: f64 = 25.0;
 const DATASET_CUTOFF: f64 = 90.0;
 const CALIBRATION_BINS: usize = 10;
@@ -22,51 +22,102 @@ const STACKED_PLOT_MARGIN: i32 = 20;
 const FONT_SIZE_TITLE: u32 = 20;
 const FONT_SIZE_AXIS: u32 = 15;
 
-// --------------------------------------------------------
-//  Entrypoint
-// --------------------------------------------------------
-pub fn analyze_tool_results(csv_file_path: &str, dataset: &str, tools: Vec<&str>) -> PolarsResult<()> {
-    // Create output directories
+pub fn analyze_tool_results(df: DataFrame, dataset: &str, tools: Vec<&str>) -> PolarsResult<()> {
+    // Load dataset efficacy first or fail if "efficacy" is missing entirely
+    let dataset_vals = extract_column(&df, "efficacy")?;
+    info!("Writing results to: {}", std::env::current_dir()?.display());
 
-    // Load and extract data
-    let df = read_csv(csv_file_path)?;
-    let dataset_vals = extract_column(&df, "dataset_efficacy")?;
-
+    // Loop over each tool in `tools`
     for tool in tools {
-        let results_directory = setup_directories(tool)?;
+        info!("Analyzing tool: {}", tool);
 
-        let tool_values = extract_column(&df, tool)?;
-        // let differences = extract_column(&df, "difference")?;
-        //
-        // if differences.is_empty() {
-        //     info!("No valid data. Exiting early.");
-        //     return Ok(());
-        // }
+        // Create the directory for this tool. If it fails, log & skip.
+        let results_directory = match setup_directories(tool) {
+            Ok(dir) => dir,
+            Err(e) => {
+                warn!("Could not create directory for '{}': {:?}", tool, e);
+                continue;  // skip to next tool
+            }
+        };
 
-        // // Display basic statistics
-        // display_stats(&differences, &dataset_vals, &chopchop_vals);
-        //
-        // // Generate all plots and analysis
-        // fraction_plots(&differences, &dataset_vals, &chopchop_vals, &results_directory, dataset)?;
-        calibrated_plots(&dataset_vals, &tool_values, &results_directory, tool)?;
-        produce_reversed_calibration_analysis(&dataset_vals, &tool_values, CALIBRATION_BINS, &results_directory, tool)?;
-        mapping_regression_plots(&dataset_vals, &tool_values, &results_directory, tool)?;
-        produce_calibration_analysis(&dataset_vals, &tool_values, DATASET_CUTOFF, CALIBRATION_BINS, &results_directory, tool)?;
+        // 1) Try to find the tool column
+        let series = match df.column(tool) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("Skipping '{}': Column not found => {}", tool, e);
+                continue;  // skip this tool
+            }
+        };
 
-        // Compute best threshold and confusion matrix
-        compute_and_display_metrics(&dataset_vals, &tool_values, &results_directory, dataset)?;
+        // 2) Try to cast it to f64 (in case it's int/string)
+        let casted = match series.cast(&DataType::Float64) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("Skipping '{}': Could not cast to Float64 => {}", tool, e);
+                continue;
+            }
+        };
 
-        // Generate stacked charts
-        generate_stacked_charts(&df, &results_directory)?;
+        // 3) Extract as f64 Series
+        let f64_col = match casted.f64() {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("Skipping '{}': casted type was not Float64 => {}", tool, e);
+                continue;
+            }
+        };
 
-        info!("Done. See '{}' for outputs.", results_directory);
+        // 4) Collect into Vec<f64>
+        let tool_values: Vec<f64> = f64_col.into_no_null_iter().collect();
+        if tool_values.is_empty() {
+            warn!("Skipping '{}': Column is empty or all null after casting", tool);
+            continue;
+        }
+
+        // ---- If we get here, we have a valid tool_values Vec<f64> ----
+        // Now run all your existing analyses/plots:
+
+        //  A) "calibrated" plots
+        calibrated_plots(&dataset_vals, &tool_values, &results_directory, tool).unwrap();
+
+        //  B) "reversed_calibration" analysis
+        produce_reversed_calibration_analysis(
+            &dataset_vals,
+            &tool_values,
+            CALIBRATION_BINS,
+            &results_directory,
+            tool,
+        ).unwrap();
+
+        //  C) "mapping" + regression
+        mapping_regression_plots(&dataset_vals, &tool_values, &results_directory, tool).unwrap();
+
+        //  D) "normal" calibration analysis
+        produce_calibration_analysis(
+            &dataset_vals,
+            &tool_values,
+            DATASET_CUTOFF,
+            CALIBRATION_BINS,
+            &results_directory,
+            tool
+        ).unwrap();
+
+        //  E) confusion matrix and metrics
+        compute_and_display_metrics(&dataset_vals, &tool_values, &results_directory, dataset).unwrap();
+
+        //  F) stacked charts
+        generate_stacked_charts(&df, &results_directory, tool).unwrap();
+
+        info!("Done with tool '{}'. See '{}'\n", tool, results_directory);
     }
-    Ok(())
 
+    Ok(())
 }
-// --------------------------------------------------------
-//  Setup and Data Handling
-// --------------------------------------------------------
+
+// ----------------------------
+// The rest below stays the same
+// ----------------------------
+
 fn setup_directories(tool: &str) -> PolarsResult<String> {
     let results_directory = format!("results_{}", tool);
     for subdir in &["", "fraction", "calibrated", "mapping", "stacked"] {
@@ -81,11 +132,12 @@ fn setup_directories(tool: &str) -> PolarsResult<String> {
 }
 
 fn extract_column(df: &DataFrame, column_name: &str) -> PolarsResult<Vec<f64>> {
-    Ok(df.column(column_name)?
-        .f64()?
-        .into_no_null_iter()
-        .collect())
+    let casted = df.column(column_name)?.cast(&DataType::Float64)?;
+    let f64_col = casted.f64()?;
+    Ok(f64_col.into_no_null_iter().collect())
 }
+
+
 
 fn display_stats(differences: &[f64], dataset_vals: &[f64], chopchop_vals: &[f64]) {
     // Basic stats for differences
@@ -141,7 +193,7 @@ fn compute_and_display_metrics(
     Ok(())
 }
 
-fn generate_stacked_charts(df: &DataFrame, results_directory: &str) -> PolarsResult<()> {
+fn generate_stacked_charts(df: &DataFrame, results_directory: &str, tool: &str) -> PolarsResult<()> {
 
     let stacked_dir = format!("{}/stacked", results_directory);
 
@@ -149,18 +201,18 @@ fn generate_stacked_charts(df: &DataFrame, results_directory: &str) -> PolarsRes
 
     plot_stacked_efficacy_vs_chopchop_linear(
         df,
-        "dataset_efficacy",
-        "chopchop_efficiency",
+        "efficacy",
+        tool,
         &format!("{}/linear_scale_chart.png", stacked_dir),
-        "Efficacy vs CHOPCHOP (Linear Scale)"
+        &format!("Dataset vs {} (Linear Scale)", tool),
     )?;
 
     plot_stacked_efficacy_vs_chopchop_relative(
         df,
-        "dataset_efficacy",
-        "chopchop_efficiency",
+        "efficacy",
+        tool,
         &format!("{}/relative_chart.png", stacked_dir),
-        "Efficacy vs CHOPCHOP (Relative Distribution)"
+        &format!("Dataset vs {} (Relative Distribution)", tool),
     )?;
 
     Ok(())
@@ -914,85 +966,85 @@ fn create_mapping_scatter_plot(
 // --------------------------------------------------------
 //  Fraction-based Plots
 // --------------------------------------------------------
-fn fraction_plots(
-    differences: &[f64],
-    dataset_vals: &[f64],
-    chopchop_vals: &[f64],
-    results_directory: &str,
-    dataset: &str,
-) -> PolarsResult<()> {
-    let frac_dir = format!("{}/fraction", results_directory);
-
-    // Overall comparison plots
-    {
-        // PR curve for dataset vs chopchop
-        let (pr_rec, pr_prec) = evaluate_pr_fraction(dataset_vals, chopchop_vals, FRACTION_CUTOFF);
-        plot_precision_recall_curve(
-            &format!("{}/precision_recall_overall.png", frac_dir),
-            &pr_rec,
-            &pr_prec,
-            &format!("PR (Fraction {:.0}%) - Overall", FRACTION_CUTOFF),
-        )
-            .map_err(polars_err)?;
-
-        // ROC curve for dataset vs chopchop
-        let (roc_fpr, roc_tpr) = evaluate_roc_fraction(dataset_vals, chopchop_vals, FRACTION_CUTOFF);
-        plot_roc_curve(
-            &format!("{}/roc_curve_overall.png", frac_dir),
-            &roc_fpr,
-            &roc_tpr,
-            &format!("ROC (Fraction {:.0}%) - Overall", FRACTION_CUTOFF),
-        )
-            .map_err(polars_err)?;
-
-        // Difference histogram
-        create_diff_histogram(
-            &format!("{}/difference_histogram.png", frac_dir),
-            differences,
-            dataset,
-        )
-            .map_err(polars_err)?;
-    }
-
-    // Dataset analysis
-    {
-        // Dataset efficacy histogram
-        create_histogram(
-            &format!("{}/{}_efficacy_histogram.png", frac_dir, dataset),
-            dataset_vals,
-            &format!("{} Efficacy", dataset),
-            "Efficacy",
-            "Count",
-        )
-            .map_err(polars_err)?;
-    }
-
-    // CHOPCHOP analysis
-    {
-        // CHOPCHOP efficacy histogram
-        create_histogram(
-            &format!("{}/chopchop_efficiency_histogram.png", frac_dir),
-            chopchop_vals,
-            "CHOPCHOP Efficiency",
-            "CHOPCHOP Efficiency",
-            "Count",
-        )
-            .map_err(polars_err)?;
-    }
-
-    // Dataset vs CHOPCHOP scatter plot
-    create_scatter(
-        &format!("{}/dataset_vs_chopchop_scatter.png", frac_dir),
-        dataset_vals,
-        chopchop_vals,
-        &format!("{} Efficacy", dataset),
-        "CHOPCHOP Efficiency",
-        &format!("{} vs CHOPCHOP (Fraction)", dataset),
-    )
-        .map_err(polars_err)?;
-
-    Ok(())
-}
+// fn fraction_plots(
+//     differences: &[f64],
+//     dataset_vals: &[f64],
+//     chopchop_vals: &[f64],
+//     results_directory: &str,
+//     dataset: &str,
+// ) -> PolarsResult<()> {
+//     let frac_dir = format!("{}/fraction", results_directory);
+//
+//     // Overall comparison plots
+//     {
+//         // PR curve for dataset vs chopchop
+//         let (pr_rec, pr_prec) = evaluate_pr_fraction(dataset_vals, chopchop_vals, FRACTION_CUTOFF);
+//         plot_precision_recall_curve(
+//             &format!("{}/precision_recall_overall.png", frac_dir),
+//             &pr_rec,
+//             &pr_prec,
+//             &format!("PR (Fraction {:.0}%) - Overall", FRACTION_CUTOFF),
+//         )
+//             .map_err(polars_err)?;
+//
+//         // ROC curve for dataset vs chopchop
+//         let (roc_fpr, roc_tpr) = evaluate_roc_fraction(dataset_vals, chopchop_vals, FRACTION_CUTOFF);
+//         plot_roc_curve(
+//             &format!("{}/roc_curve_overall.png", frac_dir),
+//             &roc_fpr,
+//             &roc_tpr,
+//             &format!("ROC (Fraction {:.0}%) - Overall", FRACTION_CUTOFF),
+//         )
+//             .map_err(polars_err)?;
+//
+//         // Difference histogram
+//         create_diff_histogram(
+//             &format!("{}/difference_histogram.png", frac_dir),
+//             differences,
+//             dataset,
+//         )
+//             .map_err(polars_err)?;
+//     }
+//
+//     // Dataset analysis
+//     {
+//         // Dataset efficacy histogram
+//         create_histogram(
+//             &format!("{}/{}_efficacy_histogram.png", frac_dir, dataset),
+//             dataset_vals,
+//             &format!("{} Efficacy", dataset),
+//             "Efficacy",
+//             "Count",
+//         )
+//             .map_err(polars_err)?;
+//     }
+//
+//     // CHOPCHOP analysis
+//     {
+//         // CHOPCHOP efficacy histogram
+//         create_histogram(
+//             &format!("{}/chopchop_efficiency_histogram.png", frac_dir),
+//             chopchop_vals,
+//             "CHOPCHOP Efficiency",
+//             "CHOPCHOP Efficiency",
+//             "Count",
+//         )
+//             .map_err(polars_err)?;
+//     }
+//
+//     // Dataset vs CHOPCHOP scatter plot
+//     create_scatter(
+//         &format!("{}/dataset_vs_chopchop_scatter.png", frac_dir),
+//         dataset_vals,
+//         chopchop_vals,
+//         &format!("{} Efficacy", dataset),
+//         "CHOPCHOP Efficiency",
+//         &format!("{} vs CHOPCHOP (Fraction)", dataset),
+//     )
+//         .map_err(polars_err)?;
+//
+//     Ok(())
+// }
 
 // --------------------------------------------------------
 //  Calibrated Plots
@@ -1063,7 +1115,7 @@ fn mapping_regression_plots(
 //  Calibration table + plot
 // --------------------------------------------------------
 #[derive(Debug)]
-struct CalibPoint {
+pub struct CalibPoint {
     bin_start: f64,
     bin_end: f64,
     mean_chopchop: f64,
@@ -1208,7 +1260,7 @@ fn compute_calibration_bins_reversed(
     result
 }
 
-fn create_calibration_plot(
+pub fn create_calibration_plot(
     output_path: &str,
     points: &[CalibPoint],
     dataset: &str,
@@ -1618,7 +1670,7 @@ pub fn plot_stacked_efficacy_vs_chopchop_linear(
         .collect();
 
     if dataset_vals.is_empty() {
-        info!("No data to plot in plot_stacked_efficacy_vs_chopchop_linear!");
+        info!("No data to plot in plot_stacked_efficacy_vs_tool_linear!");
         return Ok(());
     }
 
@@ -1679,7 +1731,7 @@ pub fn plot_stacked_efficacy_vs_chopchop_linear(
         .configure_mesh()
         .disable_mesh()
         .x_desc(dataset_col)
-        .y_desc("Count (stacked by CHOPCHOP range)")
+        .y_desc("Count (stacked by Tool range)")
         .draw()
         .map_err(|e| polars_err(Box::new(e)))?;
 
@@ -1779,7 +1831,7 @@ pub fn plot_stacked_efficacy_vs_chopchop_relative(
         .collect();
 
     if dataset_vals.is_empty() {
-        info!("No data to plot in plot_stacked_efficacy_vs_chopchop_relative!");
+        info!("No data to plot in plot_stacked_efficacy_vs_tool_relative!");
         return Ok(());
     }
 
@@ -1840,7 +1892,7 @@ pub fn plot_stacked_efficacy_vs_chopchop_relative(
         .configure_mesh()
         .disable_mesh()
         .x_desc(dataset_col)
-        .y_desc("Percentage (stacked by CHOPCHOP range)")
+        .y_desc("Percentage (stacked by Tool range)")
         .draw()
         .map_err(|e| polars_err(Box::new(e)))?;
 

@@ -112,6 +112,10 @@ impl Dataset for GenomeCrisprDatasets {
         Ok(df_final)
     }
 
+    fn augment_guides(df: DataFrame) -> PolarsResult<DataFrame> {
+        Ok(df)
+    }
+
 
     fn mageck_efficency_scoring(df: DataFrame) -> PolarsResult<DataFrame> {
         debug!("Starting MAGeCK processing for GenomeCRISPR dataset");

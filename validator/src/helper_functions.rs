@@ -2,7 +2,7 @@ use tracing::{debug, error, info};
 use std::path::PathBuf;
 use polars::error::PolarsResult;
 use polars::frame::DataFrame;
-use polars::prelude::{col, lit, CsvParseOptions, CsvReadOptions, IntoLazy, SerReader, Series};
+use polars::prelude::{col, lit, CsvParseOptions, CsvReadOptions, CsvWriter, IntoLazy, SerReader, SerWriter, Series};
 
 use std::env;
 pub fn project_root() -> PathBuf {
@@ -18,6 +18,7 @@ pub fn project_root() -> PathBuf {
 use std::fs;
 use std::path::Path;
 use serde_json::json;
+use crate::models::polars_err;
 
 pub fn write_config_json(project_root: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Define the config.json content
@@ -74,3 +75,32 @@ pub fn read_txt(file_path: &str) -> PolarsResult<DataFrame> {
     df_result
 }
 
+
+pub fn dataframe_to_csv(
+    df: &mut DataFrame,
+    path: &str,
+    include_header: bool
+) -> PolarsResult<()> {
+    // Ensure the directory exists
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            error!("Failed to create directory for {}: {}", path, e);
+            polars_err(Box::new(e))
+        })?;
+    }
+
+    // Open the file for writing
+    let file = std::fs::File::create(path).map_err(|e| {
+        error!("Failed to create file {}: {}", path, e);
+        polars_err(Box::new(e))
+    })?;
+
+    // Write the DataFrame to CSV
+    CsvWriter::new(file)
+        .include_header(include_header)
+        .with_separator(b',')
+        .finish(df)?;
+
+    info!("DataFrame successfully written to {}", path);
+    Ok(())
+}

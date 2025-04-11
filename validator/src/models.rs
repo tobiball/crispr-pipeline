@@ -41,6 +41,7 @@ pub enum PredictionTool {
 
 
 
+
 impl ValidationData {
     pub fn extract_dataframe(self) -> DataFrame {
         match self { ValidationData::Avana(avana_dataset) => avana_dataset }
@@ -60,6 +61,8 @@ pub const REQUIRED_COLUMNS: &[&str] = &[
 pub trait Dataset {
     /// Loads and preprocesses the dataset, returning a DataFrame.
     fn load(&self) -> PolarsResult<DataFrame>;
+
+    fn augment_guides(df: DataFrame) -> PolarsResult<DataFrame>;
 
     fn validate_columns(df: &DataFrame, dataset_name: &str) -> PolarsResult<()> {
         let df_columns = df.get_column_names();
@@ -97,11 +100,12 @@ pub trait Dataset {
     /// A convenience method that loads and validates in one go
     fn load_validated(&self, dataset_name: &str, cegs: DataFrame) -> PolarsResult<DataFrame> {
         let df = self.load()?;
-        let df_scored = Self::mageck_efficency_scoring(df)?;
+        let df_filtered = Self::filter_for_ceg_only(df,cegs)?;
+        let df_augmented = Self::augment_guides(df_filtered)?;
+        let df_scored = Self::mageck_efficency_scoring(df_augmented)?;
         Self::validate_columns(&df_scored, dataset_name)?;
 
-        let df_filtered = Self::filter_for_ceg_only(df_scored,cegs)?;
-        Ok(df_filtered)
+        Ok(df_scored)
     }
     }
 
@@ -109,3 +113,4 @@ pub trait Dataset {
 pub fn polars_err(err: Box<dyn Error>) -> PolarsError {
     PolarsError::ComputeError(err.to_string().into())
 }
+

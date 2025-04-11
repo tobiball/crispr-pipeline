@@ -27,6 +27,10 @@ impl Dataset for Cegs {
 
         Ok(df)}
 
+    fn augment_guides(df: DataFrame) -> PolarsResult<DataFrame> {
+        Ok((df))
+    }
+
     fn validate_columns(df: &DataFrame, dataset_name: &str) -> PolarsResult<()> {
         Ok(())
     }
