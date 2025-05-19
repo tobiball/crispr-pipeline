@@ -15,7 +15,7 @@ use std::time::Instant;
 use log::{error, info};
 // ...
 
-pub fn run_crispor_meta(df: DataFrame, database_name: &str) -> PolarsResult<()> {
+pub fn run_crispor_meta(df: DataFrame, database_name: &str) -> PolarsResult<(DataFrame)> {
     // (1) Limit the DataFrame to 450 guides for testing:
     //     (If your df has <= 450 rows, you can skip or adjust.)
 
@@ -64,16 +64,6 @@ pub fn run_crispor_meta(df: DataFrame, database_name: &str) -> PolarsResult<()> 
     let crispor_results = read_txt(&output_file)?;
     let mut df_joined = df.left_join(&crispor_results, ["sequence_with_pam"], ["targetSeq"])?;
 
-    // ----------------------------
-    // Write final results once
-    // ----------------------------
-    let results_csv_path = format!("{}/processed_data/crispor_{}.csv", project_root().display(), database_name);
-    let file = File::create(&results_csv_path)?;
-    CsvWriter::new(file).finish(&mut df_joined)?;
 
-    // (3) Print timing results
-    let elapsed = start_time.elapsed();
-    info!("CRISPOR completed in: {:?}", elapsed);
-
-    Ok(())
+    Ok((df_joined))
 }

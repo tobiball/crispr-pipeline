@@ -9,7 +9,9 @@ use crate::helper_functions::project_root; // Import your helper function
 /// Run the efficacy distribution analysis using the Python module
 pub fn analyze_efficacy_distribution(
     df: &DataFrame,
-    output_dir: &str
+    output_dir: &str,
+    poor_threshold: f64,
+    moderate_threshold: f64,
 ) -> PolarsResult<()> {
     info!("Starting efficacy distribution analysis");
 
@@ -19,8 +21,7 @@ pub fn analyze_efficacy_distribution(
         PolarsError::ComputeError(format!("Failed to create directory: {}", e).into())
     })?;
 
-    // Create a simplified DataFrame with only the efficacy column
-    // This avoids issues with nested data types
+    // Extract the efficacy column
     let efficacy_column = match df.column("efficacy") {
         Ok(col) => col.clone(),
         Err(_) => {
@@ -31,10 +32,16 @@ pub fn analyze_efficacy_distribution(
 
     // Generate a simple index column
     let len = df.height();
-    let idx_col = Series::new(PlSmallStr::from("id"), (0..len).map(|i| i as i32).collect::<Vec<i32>>());
+    let idx_col = Series::new(
+        PlSmallStr::from("id"),
+        (0..len).map(|i| i as i32).collect::<Vec<i32>>(),
+    );
 
     // Create a simplified DataFrame with just ID and efficacy
-    let simple_df = DataFrame::new(vec![Column::from(idx_col), efficacy_column])?;
+    let simple_df = DataFrame::new(vec![
+        Column::from(idx_col),
+        efficacy_column,
+    ])?;
 
     // Save DataFrame to a temporary CSV
     let temp_dir = "./temp_analysis";
@@ -44,9 +51,8 @@ pub fn analyze_efficacy_distribution(
     })?;
 
     let input_path = format!("{}/efficacy_values.csv", temp_dir);
-
-    // Save simplified DataFrame to CSV
     info!("Saving simplified DataFrame to temporary CSV at {}", input_path);
+
     let mut file = std::fs::File::create(&input_path).map_err(|e| {
         error!("Failed to create temporary CSV file: {}", e);
         PolarsError::ComputeError(format!("Failed to create file: {}", e).into())
@@ -54,22 +60,17 @@ pub fn analyze_efficacy_distribution(
 
     CsvWriter::new(&mut file)
         .include_header(true)
-        .with_separator(b',')
         .finish(&mut simple_df.clone())?;
 
-    // Use project_root to build paths
+    // Build paths using project_root
     let root_path = project_root();
-
-    // Build the path to the Python script
     let script_path = root_path.join("scripts/efficacy_analysis.py");
-
-    // Build the path to the Python interpreter
     let python_path = root_path.join("scripts/efficacy_analysis_env/bin/python");
 
     info!("Using Python interpreter at: {}", python_path.display());
     info!("Using script at: {}", script_path.display());
 
-    // Execute the Python script
+    // Execute the Python script with configurable thresholds
     let output = Command::new(python_path)
         .arg(&script_path)
         .arg("--input")
@@ -78,6 +79,10 @@ pub fn analyze_efficacy_distribution(
         .arg(output_dir)
         .arg("--efficacy-column")
         .arg("efficacy")
+        .arg("--poor-threshold")
+        .arg(poor_threshold.to_string())
+        .arg("--moderate-threshold")
+        .arg(moderate_threshold.to_string())
         .output()
         .map_err(|e| {
             error!("Failed to execute Python script: {}", e);
@@ -87,26 +92,25 @@ pub fn analyze_efficacy_distribution(
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         error!("Python script failed: {}", stderr);
-        return Err(PolarsError::ComputeError(format!("Python script error: {}", stderr).into()));
+        return Err(PolarsError::ComputeError(
+            format!("Python script error: {}", stderr).into(),
+        ));
     }
 
     // Log stdout for debugging
     let stdout = String::from_utf8_lossy(&output.stdout);
     debug!("Python script output: {}", stdout);
 
-    // Check if the output files were created
-    let distribution_plot_path = Path::new(output_dir).join("efficacy_distribution.png");
-    let category_plot_path = Path::new(output_dir).join("category_distribution.png");
-
-    if distribution_plot_path.exists() && category_plot_path.exists() {
-        info!("Successfully created efficacy distribution visualizations:");
-        info!("  - {}", distribution_plot_path.display());
-        info!("  - {}", category_plot_path.display());
+    // Verify outputs
+    let dist_plot = Path::new(output_dir).join("efficacy_distribution.png");
+    let cat_plot = Path::new(output_dir).join("category_distribution.png");
+    if dist_plot.exists() && cat_plot.exists() {
+        info!("Successfully created plots: {}, {}", dist_plot.display(), cat_plot.display());
     } else {
-        error!("Expected output files not found!");
+        error!("Expected output files not found in {}", output_dir);
     }
 
-    // Clean up temporary files (optional)
+    // Clean up temporary CSV
     if let Err(e) = std::fs::remove_file(&input_path) {
         warn!("Failed to remove temporary file {}: {}", input_path, e);
     }

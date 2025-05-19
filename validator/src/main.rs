@@ -1,13 +1,13 @@
 #![allow(unused)]
 
-
-
+use std::fs::File;
+use crate::prediction_tools::deepspcas9_integration;
 use crate::analysis::prediction_evaluation::evaluate_prediction_tools;
 use crate::prediction_tools::tko_pssm;
 use crate::analysis::guide_analysis::generate_high_efficacy_low_prediction_df;
-use crate::analysis::within_gene::{plot_stripplot_for_tool, plot_tool_vs_efficacy};
+use crate::analysis::within_gene::{plot_stripplot_for_tool, plot_tool_vs_efficacy, run_bad_guide_summary};
 use crate::analysis::tool_evaluation::analyze_tool_results;
-use crate::analysis::tool_comparison;
+use crate::analysis::{tool_comparison, within_gene};
 use crate::data_handling::cegs::Cegs;
 use polars::prelude::*;
 use tracing::{error, info};
@@ -21,13 +21,16 @@ use crate::data_handling::any_dataset::AnyDataset;
 use crate::data_handling::genome_crispr::GenomeCrisprDatasets;
 
 use crate::data_handling::avana_depmap::{AvanaDataset};
-use crate::helper_functions::{dataframe_to_csv, project_root, read_csv, write_config_json};
+use crate::helper_functions::{dataframe_to_csv, drop_mono_class_genes, label_by_efficacy, project_root, read_csv, undersample_equal_classes, write_config_json};
 use crate::mageck_processing::{run_mageck_test, write_mageck_input, MageckOptions};
 use crate::models::{polars_err, Dataset};
 use crate::prediction_tools::chopchop_integration::run_chopchop_meta;
 use crate::prediction_tools::deepcrispr_integration::run_deepcrispr_meta;
 use crate::prediction_tools::crispor_integration;
 use crate::prediction_tools::transcrispr::run_transcrispr_meta;
+use combination_model::fit_and_apply;
+use combination_model::WeightMap;
+use crate::logistic_cv::{apply_logistic_score, fit_logistic_cv};
 
 mod models;
 mod data_handling;
@@ -35,6 +38,8 @@ mod prediction_tools;
 mod helper_functions;
 mod mageck_processing;
 mod analysis;
+mod combination_model;
+mod logistic_cv;
 // Helper function to read CSV files
 
 
@@ -61,81 +66,207 @@ fn main() -> PolarsResult<()> {
         path: "./data/genomecrispr/GenomeCRISPR_full05112017_brackets.csv".to_string(),
 
     };
-    let avana_dataset = AvanaDataset {
+    let ky_dataset = AvanaDataset {
         efficacy_path: "./data/depmap/CRISPRInferredGuideEfficacy_23Q4.csv".to_string(),
-        guide_map_path: "./data/depmap/AvanaGuideMap_23Q4.csv".to_string(),
+        guide_map_path: "./data/depmap/KYGuideMap.csv".to_string(),
     };
+
 
     let cegs = cegs.load()?;
     // let df = genomecrispr_datasets.load_validated("genome_crispr_short", cegs)?;
-    // let df = avana_dataset.load_validated("avana-depmap", cegs)?;
-    // run_chopchop_meta(df.clone(), "avana-depmap")?;
+    let mut df = ky_dataset.load_validated("ky-depmap", cegs)?;
+
+    let mut df = undersample_equal_classes(&drop_mono_class_genes(label_by_efficacy(df)?)?, "quality", Some(47))?;
 
 
+    // // run_chopchop_meta(df.clone(), "ky-depmap")?;
+    //
+    //
+    //
+    df = run_deepcrispr_meta(df, "ky-depmap")?;
+    // //
+    //
+    //
+    // //
+    // //
+    // // analyze_efficacy_distribution(&mut df, "./general_results/efficacy_analysis_results")?;
+    // //
+    //
+    //
+    //
+    // //
+    // //
+    df = run_transcrispr_meta(
+            df,
+        "ky-depmap"
+    )?;
+    // // info!("TransCRISPR analysis completed");
+    //
+    // info!("DeepSpCas9 integration completed");
+    //
+    //
 
-    // let df = AnyDataset{
-    //     path: "./processed_data/crispor_avana-depmap.csv".to_string(),
+    df = deepspcas9_integration::run_deepspcas9_meta(df.clone(), "prediction")?;
+
+    df = crispor_integration::run_crispor_meta(df.clone(), "ky-depmap")?;
+    //
+    // // let de =
+    // //
+    //
+    // //
+
+    // let mut df = AnyDataset {
+    //     path: "./processed_df.csv".to_string(),
     // }.load()?;
-    //
-    // run_deepcrispr_meta("./processed_data/crispor_avana-depmap.csv", "avana-depmap");
-    //
-
-
-    let mut df = AnyDataset{
-        path: "./processed_df.csv".to_string(),
-    }.load()?;
-    //
-    //
-    // analyze_efficacy_distribution(&mut df, "./general_results/efficacy_analysis_results")?;
-    //
-
-    // let df = tko_pssm::run_pssm_meta(df.clone(), "sgRNA", "avana-depmap")?;
-    //
-    //
-    // let mut df = run_transcrispr_meta(
-    //     AnyDataset{
-    //         path: "./processed_data/deepcrispr_output_avana-depmap.csv".to_string(),
-    //     }.load()?,
-    //     "avana-depmap"
-    // )?;
-    // info!("TransCRISPR analysis completed");
-
-    // dataframe_to_csv(&mut df, "processed_df.csv", true);
-
-    // Define the prediction tool columns to compare
-    // crispor_integration::run_crispor_meta(df, "avana-depmap")?;
-
-
-    // Select the prediction tools to evaluate
-    let tools_to_evaluate: Vec<&str> = vec![
-        "deepcrispr_prediction",     // DeepCRISPR score
-        "transcrispr_prediction",    // TransCRISPR score
-        "mitSpecScore",              // MIT specificity score
-        "cfdSpecScore",              // CFD specificity score
-        "Doench '16-Score",          // Doench 2016 score
-        "Moreno-Mateos-Score",       // Moreno-Mateos score
-        "Doench-RuleSet3-Score",     // Doench RuleSet3 score
-        "Out-of-Frame-Score",        // Out-of-Frame score
-        "Lindel-Score",              // Lindel score
-        // "pssm_score",                // PSSM model score
-        // "chopchop_efficiency",       // CHOPCHOP score
-    ];
-
-    read_csv("processed_df.csv");
-
-
-
-    // // Generate all key diagrams at once
-    // info!("Generating key diagrams for prediction tools...");
-    // let diagram_paths = run_key_diagrams(&mut df, "./visualization_results", tools_to_evaluate.clone(), "efficacy", "title")?;
-
 
     // Define evaluation parameters
     let efficacy_column = "efficacy";
     let poor_threshold = 50.0;
-    let good_threshold = 75.0;
-    let min_good_coverage = 0.75; // Require tools to identify at least 75% of good guides
+    let good_threshold = 80.0;
+    let min_good_coverage = 0.75;
     let output_dir = "./prediction_evaluation_results";
+
+    analyze_efficacy_distribution(&df, output_dir, poor_threshold, good_threshold);
+
+    info!("▶ Columns *after* load(): {:?}", df.get_column_names());
+
+    // // 2) After running PSSM (un-comment if you use it)
+    df = tko_pssm::run_pssm_meta(df.clone(), "sgRNA", "ky-depmap")?;
+    // info!("▶ Columns *after* run_pssm_meta(): {:?}", df.get_column_names());
+
+    // 3) (Optional) after writing & re-loading
+    dataframe_to_csv(&mut df, "processed_df_ky.csv", true);
+    df = AnyDataset { path: "./processed_df_ky.csv".to_string() }.load()?;
+    // info!("▶ Columns *after* re-load from CSV: {:?}", df.get_column_names());
+
+    // 4) Before rename
+    let rename_map = [
+        ("Doench '16-Score",       "Doench 16"),
+        ("Moreno-Mateos-Score",    "Moreno-Mateos"),
+        ("Doench-RuleSet3-Score",  "Doench RuleSet 3"),
+        ("deepcrispr_prediction",  "DeepCRISPR"),
+        ("transcrispr_prediction", "TransCRISPR"),
+        ("deepspcas9_prediction",  "DeepSpCas9"),
+        ("pssm_score",             "TKO PSSM"),
+    ];
+
+    for &(old, new) in &rename_map {
+        if df.get_column_names().iter().any(|c| *c == old) {
+            df.rename(old, new.into())?;
+            info!("    • Renamed `{}` → `{}`", old, new);
+        }
+    }
+
+    // 5) Before cast
+    for &col_name in &["Doench 16", "Moreno-Mateos", "Doench RuleSet 3"] {
+        // compare as_str() → &str
+        if df.get_column_names().iter().any(|c| c.as_str() == col_name) {
+            let s = df
+                .column(col_name)?
+                .cast(&DataType::Float64)?;         // cast the Series
+            df = df.with_column(s)?.clone();                // put it back
+            info!("▶ Casted `{}` to Float64", col_name);
+        } else {
+            info!("⚠ `{}` not found, skipping cast", col_name);
+        }
+    }
+
+    // … continue with your tool list …
+    let mut tools_to_evaluate: Vec<&str> = vec![
+        "DeepCRISPR",
+        "TransCRISPR",
+        "Doench 16",
+        "Moreno-Mateos",
+        "Doench RuleSet 3",
+        "TKO PSSM",
+        "DeepSpCas9",
+    ];
+
+
+    // let learned_weights = fit_and_apply(
+    //     &mut df,
+    //     &tools_to_evaluate,
+    //     "efficacy",
+    //     "Linear Consensus",
+    // )?;
+    // serde_json::to_writer_pretty(
+    //     File::create("weights_linear_ky24q4.json")?, &learned_weights).unwrap();
+
+
+    for t in &tools_to_evaluate {
+        let s = df.column(t)?;
+        println!("{t}: dtype={:?}, nulls={}", s.dtype(), s.null_count());
+    }
+    let cols_owned: Vec<String> =
+        tools_to_evaluate.iter().map(|s| s.to_string()).collect();
+
+    df = df.drop_nulls(Some(&cols_owned))?;
+
+
+
+    // // ───────── NEW logistic consensus ─────────
+    // let (log_weights, log_thr) = fit_logistic_cv(
+    //     &mut df,
+    //     &tools_to_evaluate,
+    //     "efficacy",
+    //     good_threshold as f64,
+    //     "Gene",                  // ← gene-ID column in your DataFrame
+    //     5,                       // 5-fold CV
+    //     0.01,                    // L2 strength
+    // )?;
+    //
+    // apply_logistic_score(
+    //     &mut df,
+    //     &tools_to_evaluate,
+    //     &log_weights,
+    //     "Logistic Consensus",
+    // )?;
+
+    // serde_json::to_writer_pretty(
+    //     File::create("weights_logistic_ky24q4.json")?, &log_weights).unwrap();
+    // println!("Logistic threshold (Youden-J): {:.3}", log_thr);
+
+    // add the new column to the evaluation list
+    tools_to_evaluate.push("Logistic Consensus");
+
+    // ───────── evaluation continues exactly as before ─────────
+    evaluate_prediction_tools(
+        &df,
+        &tools_to_evaluate,
+        efficacy_column,
+        poor_threshold,
+        good_threshold,
+        min_good_coverage,
+        output_dir,
+    )?;
+
+    // let corr_df = df
+    //     .lazy()
+    //     .select(
+    //         tools_to_evaluate
+    //             .iter()
+    //             .enumerate()
+    //             .flat_map(|(i, &a)| {
+    //                 tools_to_evaluate[i..].iter().map(move |&b| {
+    //                     pearson_corr(col(a), col(b)).alias(&format!("{a}_vs_{b}"))
+    //                 })
+    //             })
+    //             .collect::<Vec<_>>(),
+    //     )
+    //     .collect()?;
+    //
+    // println!("{corr_df}");
+    // println!("{corr_df}");
+
+
+    let mut tools_to_evaluate = tools_to_evaluate;     // make it mutable
+    tools_to_evaluate.push("Linear Consensus");
+
+
+
+
+
+
 
     // Run the evaluation
     evaluate_prediction_tools(
@@ -148,49 +279,22 @@ fn main() -> PolarsResult<()> {
         output_dir
     )?;
 
+    for cutoff in vec![80] {
+        tool_comparison::compare_roc_curves(&df, &tools_to_evaluate.clone(), "efficacy", cutoff as f64, "./general_results") ?;
+    }
+    let df_filtered = within_gene_analysis(df.clone(), tools_to_evaluate.clone())?;
+    for tool in &tools_to_evaluate {
+        let out_path = format!("./general_results/results_{}/", tool);
+        // plot_tool_vs_efficacy(&df_an, tool, format!("{}tool_vs_efficacy.png", &out_path))?;
+        plot_stripplot_for_tool(&df_filtered, tool,format!("{}stripplot_within_gene.png", &out_path))?;
+
+        println!("Wrote {}", out_path);
+    }
+    let summary_df = within_gene::bad_guide_detection_summary(&df_filtered, tools_to_evaluate.clone())?;
+    run_bad_guide_summary(&df_filtered, tools_to_evaluate.clone(), "./results/bad_guides")?;
 
 
-    // // Run the comparison analysis
-    //
-    // println!("Tools to evaluate: {:?}", tools_to_compare);
-    //
-    // println!("DataFrame columns: {:?}", df.get_column_names());
-    //
-    //
-    //
-    // analyze_tool_results(df.clone(), "avana-depmap", tools_to_compare.clone());
-    //
-    //
-    // let df_an = within_gene_analysis(df.clone(), tools_to_compare.clone())?;
-    //
-    //
-    //
-    // info!("Running comparative analysis of prediction tools...");
-    //
-    // for cutoff in vec![50,60,70,80,90,95] {
-    //     tool_comparison::compare_roc_curves(&df, &tools_to_compare.clone(), "efficacy", cutoff as f64, "./general_results") ?;
-    // }
-    //
-    // info!("Comparative analysis completed");
-    //
-    //
-    // // Evaluate each score's ROC/AUC against the “guide_quality” boolean column
-    // let roc_results = evaluate_scores(&df_an, &tools_to_compare).map_err(|e| polars_err(Box::new(e)))?;
-    //
-    //
-    // // Print out AUC for each tool
-    // for (tool, roc) in roc_results {
-    //     println!("Tool: {:<25}  AUC: {:.4}", tool, roc.auc);
-    // }
-    //
-    // for tool in &tools_to_compare {
-    //     let out_path = format!("./results_{}/", tool);
-    //     // plot_tool_vs_efficacy(&df_an, tool, format!("{}tool_vs_efficacy.png", &out_path))?;
-    //     plot_stripplot_for_tool(&df_an, tool,format!("{}stripplot_within_gene.png", &out_path))?;
-    //
-    //     println!("Wrote {}", out_path);
-    // }
-    //
+    //_________________________________________________________________________________________________________________________________________
     // generate_high_efficacy_low_prediction_df(
     //     &df,
     //     tools_to_compare.clone(),
@@ -199,26 +303,7 @@ fn main() -> PolarsResult<()> {
     //     Some(2) // Minimum number of mismatches
     // )?;
 
-    // info!("Analyzing how prediction tools categorize guides into efficacy bins");
 
-
-
-
-
-    // // Create output directory for evaluation results
-    // let prediction_eval_dir = "./prediction_evaluation_results";
-    // std::fs::create_dir_all(prediction_eval_dir).expect("Failed to create directory");
-    //
-    // let efficacy_thresholds = PredictionThresholds {
-    //     poor_threshold: 50.0,  // < 50 = poor guides
-    //     good_threshold: 75.0,  // >= 75 = good guides
-    // };
-    //
-    //
-    // let poor_threshold = 50.0; // Guides with efficacy < 50 are considered poor
-    // let good_threshold = 75.0; // Guides with efficacy >= 75 are considered good
-    //
-    // // Run comparison of all tools
     // info!("Running categorical prediction evaluation for all tools...");
     // compare_prediction_tools(
     //     &df,
@@ -227,28 +312,11 @@ fn main() -> PolarsResult<()> {
     //     efficacy_thresholds,
     //     prediction_eval_dir
     // )?;
-    //
-    //
-    // info!("Prediction tool categorization analysis complete");
-    //
-    //
-    // // info!("Running comparative analysis with heatmaps...");
+
     // let heatmap_dir = "./general_results/heatmaps";
     // analysis::heatmap_comparison::generate_tool_comparison_heatmaps(&df, tools_to_compare.clone(), heatmap_dir)?;
 
-    // ---- Add these lines to your main.rs file after your existing analysis code ----
-
-    // Generate Sankey diagram to visualize prediction accuracy
-    // info!("Generating Sankey diagram for prediction tools...");
-
-    // Use the same tools list you defined earlier in your code for consistency
-    // This ensures the Sankey diagram includes the same tools as your other analyses
-    // NEW: Add Sankey diagram analysis
-    // info!("Running Sankey diagram analysis...");
     // create_prediction_sankey(&df, "efficacy", &tools_to_compare, "general_results")?;
-    //
-    // info!("Sankey visualization completed");
-
 
 
     info!("CRISPR pipeline completed successfully");

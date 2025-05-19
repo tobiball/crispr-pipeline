@@ -1,8 +1,10 @@
+use std::cmp::Ordering;
 use polars::prelude::*;
 use plotters::prelude::*;
 use std::error::Error;
 use std::fs::create_dir_all;
 use tracing::{info, error};
+use crate::helper_functions::colour_for_tool;
 use crate::models::polars_err;
 
 /// Simple function to generate ROC curves for multiple prediction tools
@@ -91,6 +93,14 @@ pub fn compare_roc_curves(
         error!("No valid tool data to plot");
         return Err(PolarsError::ComputeError("No valid tool data".into()));
     }
+
+    roc_data.sort_by(|a, b| {
+        b.3.partial_cmp(&a.3).unwrap_or(Ordering::Equal)   // a.3 == AUC
+    });
+    // --------------------------------------------------------------
+
+    let roc_path = format!("{}/roc_comparison_cutoff_{}.png", output_dir, cutoff);
+    draw_roc_plot(&roc_path, &roc_data, cutoff)?;
 
     // Create the ROC plot
     let roc_path = format!("{}/roc_comparison_cutoff_{}.png", output_dir,  cutoff);
@@ -207,34 +217,16 @@ fn draw_roc_plot(
         .label("Random (AUC=0.5)")
         .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], BLACK.mix(0.2)));
 
-    // Define colors
-    let colors = [
-        &RGBColor(0, 119, 182),    // Blue
-        &RGBColor(217, 72, 1),     // Orange
-        &RGBColor(0, 153, 136),    // Teal
-        &RGBColor(153, 0, 153),    // Purple
-        &RGBColor(230, 159, 0),    // Yellow
-        &RGBColor(86, 180, 233),   // Sky Blue
-        &RGBColor(213, 94, 0),     // Vermillion
-        &RGBColor(0, 158, 115),    // Bluish Green
-        &RGBColor(204, 121, 167),  // Reddish Purple
-    ];
 
-    // Draw each tool's ROC curve
-    for (i, (tool, fprs, tprs, auc)) in roc_data.iter().enumerate() {
-        let color = colors[i % colors.len()];
+    for (tool, fprs, tprs, auc) in roc_data {
+        let colour = colour_for_tool(tool);
 
-        // Create points for the curve
-        let points: Vec<(f64, f64)> = fprs.iter()
-            .zip(tprs.iter())
-            .map(|(&x, &y)| (x, y))
-            .collect();
-
-        // Draw the line
-        chart.draw_series(LineSeries::new(points, color.clone()))
-            .map_err(|e| polars_err(Box::new(e)))?
-            .label(format!("{} (AUC={:.3})", tool, auc))
-            .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.clone()));
+        chart.draw_series(LineSeries::new(
+            fprs.iter().zip(tprs.iter()).map(|(&x,&y)| (x,y)),
+            colour.stroke_width(2),
+        )).unwrap()
+            .label(format!("{tool} (AUC={auc:.3})"))
+            .legend(move |(x,y)| PathElement::new(vec![(x,y),(x+20,y)], colour));
     }
 
     // Add legend

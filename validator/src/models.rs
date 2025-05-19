@@ -96,6 +96,21 @@ pub trait Dataset {
 
 
         Ok(df_filtered)
+
+
+        // debug!("df_ceg columns: {:?}", df_ceg.get_column_names());
+        //
+        // // Return the rows from `df` whose Gene is *absent* from df_ceg.GENE
+        // let df_filtered = df.join(
+        //     &df_ceg,
+        //     ["Gene"],           // left-side key
+        //     ["GENE"],           // right-side key
+        //     JoinArgs::from(JoinType::Anti),   // ← Anti instead of Semi
+        //     None,
+        // )?;
+        //
+        // debug!("{:?}", df_filtered);
+        // Ok(df_filtered)
     }
     /// A convenience method that loads and validates in one go
     fn load_validated(&self, dataset_name: &str, cegs: DataFrame) -> PolarsResult<DataFrame> {

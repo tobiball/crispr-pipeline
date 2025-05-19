@@ -148,87 +148,165 @@ const PAM_LENGTH: usize = 3; // NGG PAM length
 const GENOMIC_CONTEXT_PADDING: i64 = 50; // Get additional sequence for PAM extraction
 
 /// Add PAM sequences to guides in the DataFrame
+// pub fn augment_guides_with_pam(mut df: DataFrame) -> PolarsResult<DataFrame> {
+//     info!("Augmenting guides with PAM sequences with genomic context for debugging purposes");
+//
+//     let chromosome = df.column("chromosome")?.str()?;
+//     let start = df.column("start")?.i64()?;
+//     let end = df.column("end")?.i64()?;
+//     let strand = df.column("strand")?.str()?;
+//     let guide_seq = df.column("sgRNA")?.str()?;
+//
+//     let mut pam_sequences = Vec::new();
+//     let mut sequences_with_pam = Vec::new();
+//
+//
+//     for i in 0..df.height() {
+//         // Use pattern matching for safer unwrapping
+//         let chrom = match chromosome.get(i) {
+//             Some(c) => c,
+//             None => {
+//                 debug!("Missing chromosome for row {}, using empty string", i);
+//                 ""
+//             }
+//         };
+//
+//         let start_pos = match start.get(i) {
+//             Some(s) => s,
+//             None => {
+//                 debug!("Missing start position for row {}, skipping PAM extraction", i);
+//                 continue;
+//             }
+//         };
+//
+//         let guide = match guide_seq.get(i) {
+//             Some(g) => g,
+//             None => {
+//                 debug!("Missing guide sequence for row {}, using empty string", i);
+//                 ""
+//             }
+//         };
+//
+//         let strand_val = match strand.get(i) {
+//             Some(s) => s,
+//             None => {
+//                 debug!("Missing strand for row {}, assuming '+'", i);
+//                 "+"
+//             }
+//         };
+//
+//         // Extract genomic sequence with error handling
+//         let region_seq = match extract_genomic_sequence(chrom, start_pos - 1, start_pos + 22) {
+//             Ok(seq) => seq,
+//             Err(e) => {
+//                 debug!("Failed to extract genomic sequence for row {}: {}", i, e);
+//                 String::new()
+//             }
+//         };
+//
+//         // Process sequence based on strand
+//         let sequence_to_use = if strand_val == "+" {
+//             region_seq.clone()
+//         } else {
+//             reverse_complement(&region_seq)
+//         };
+//
+//         // PAM position with bounds checking
+//         let pam = sequence_to_use[20..23].to_string();
+//
+//         let full_seq = format!("{}{}", guide, pam);
+//
+//         // debug!("Extracted genomic context: {}", sequence_to_use);
+//         // debug!("Debugging guide #{}: chrom={}, pos={}, strand={}", i, chrom, start_pos, strand_val);
+//         // debug!("Guide seq: {}, PAM seq: {}", guide, pam);
+//
+//         pam_sequences.push(pam);
+//         sequences_with_pam.push(full_seq);
+//     }
+//
+//     df.with_column(Series::new(PlSmallStr::from("pam"), pam_sequences))?;
+//     df.with_column(Series::new(PlSmallStr::from("sequence_with_pam"), sequences_with_pam))?;
+//
+//     Ok(df)
+// }
+
+
 pub fn augment_guides_with_pam(mut df: DataFrame) -> PolarsResult<DataFrame> {
     info!("Augmenting guides with PAM sequences with genomic context for debugging purposes");
 
-    let chromosome = df.column("chromosome")?.str()?;
-    let start = df.column("start")?.i64()?;
-    let end = df.column("end")?.i64()?;
-    let strand = df.column("strand")?.str()?;
-    let guide_seq = df.column("sgRNA")?.str()?;
+    // grab columns
+    let chr_col    = df.column("chromosome")?.str()?;
+    let start_col  = df.column("start")?.i64()?;
+    let strand_col = df.column("strand")?.str()?;
+    let guide_col  = df.column("sgRNA")?.str()?;
 
-    let mut pam_sequences = Vec::new();
-    let mut sequences_with_pam = Vec::new();
-
+    // prepare output vectors
+    let mut sequences_deepspcas9 = Vec::with_capacity(df.height());
+    let mut pam_sequences        = Vec::with_capacity(df.height());
+    let mut sequences_with_pam   = Vec::with_capacity(df.height());
 
     for i in 0..df.height() {
-        // Use pattern matching for safer unwrapping
-        let chrom = match chromosome.get(i) {
-            Some(c) => c,
-            None => {
-                debug!("Missing chromosome for row {}, using empty string", i);
-                ""
-            }
-        };
-
-        let start_pos = match start.get(i) {
-            Some(s) => s,
-            None => {
-                debug!("Missing start position for row {}, skipping PAM extraction", i);
+        // pull row values, or skip with empties
+        let (chrom, pos, strand_val, guide) = match (
+            chr_col.get(i),
+            start_col.get(i),
+            strand_col.get(i),
+            guide_col.get(i),
+        ) {
+            (Some(c), Some(p), Some(s), Some(g)) => (c, p, s, g),
+            _ => {
                 continue;
             }
         };
 
-        let guide = match guide_seq.get(i) {
-            Some(g) => g,
-            None => {
-                debug!("Missing guide sequence for row {}, using empty string", i);
-                ""
-            }
+        // — 1) build 30 nt window for DeepSpCas9: [pos-4 .. pos+26)
+        let raw30 = extract_genomic_sequence(chrom, pos - 4, pos + 26)
+            .unwrap();
+        let seq30 = if strand_val == "+" {
+            raw30.clone()
+        } else {
+            reverse_complement(&raw30)
         };
 
-        let strand_val = match strand.get(i) {
-            Some(s) => s,
-            None => {
-                debug!("Missing strand for row {}, assuming '+'", i);
-                "+"
-            }
-        };
-
-        // Extract genomic sequence with error handling
-        let region_seq = match extract_genomic_sequence(chrom, start_pos - 1, start_pos + 22) {
-            Ok(seq) => seq,
-            Err(e) => {
-                debug!("Failed to extract genomic sequence for row {}: {}", i, e);
-                String::new()
-            }
-        };
-
-        // Process sequence based on strand
+        // — 2) run your *old* PAM‐extraction on a 23 nt slice [pos-1 .. pos+22)
+        let region_seq = extract_genomic_sequence(chrom, pos - 1, pos + 22)
+            .unwrap_or_else(|_| String::new());
         let sequence_to_use = if strand_val == "+" {
             region_seq.clone()
         } else {
             reverse_complement(&region_seq)
         };
+        // slice out bases 20..23 of that 23 nt
+        let pam = if sequence_to_use.len() >= 23 {
+            sequence_to_use[20..23].to_string()
+        } else {
+            String::new()
+        };
+        let full23 = format!("{}{}", guide, pam);
 
-        // PAM position with bounds checking
-        let pam = sequence_to_use[20..23].to_string();
-
-        let full_seq = format!("{}{}", guide, pam);
-
-        // debug!("Extracted genomic context: {}", sequence_to_use);
-        // debug!("Debugging guide #{}: chrom={}, pos={}, strand={}", i, chrom, start_pos, strand_val);
-        // debug!("Guide seq: {}, PAM seq: {}", guide, pam);
-
+        // — 3) push into our columns
+        sequences_deepspcas9.push(seq30);
         pam_sequences.push(pam);
-        sequences_with_pam.push(full_seq);
+        sequences_with_pam.push(full23);
     }
 
-    df.with_column(Series::new(PlSmallStr::from("pam"), pam_sequences))?;
-    df.with_column(Series::new(PlSmallStr::from("sequence_with_pam"), sequences_with_pam))?;
+    df = df
+        .filter(&(&chr_col.is_not_null() & &start_col.is_not_null()
+            & strand_col.is_not_null() & guide_col.is_not_null()))?;
 
-    Ok(df)
+    // finally tack on the three new columns
+    df = df
+        .with_column(Series::new("sequence_deepspcas9".into(), sequences_deepspcas9))?
+        .with_column(Series::new("pam".into(), pam_sequences))?
+        .with_column(Series::new("sequence_with_pam".into(), sequences_with_pam))?.clone();
+
+    // drop your helper if you like
+    Ok(df.drop("split_parts")?)
 }
+
+
+
+
 
 fn extract_genomic_sequence(chromosome: &str, start: i64, end: i64) -> Result<String, Box<dyn std::error::Error>> {
     let twobit_path = project_root().join("chopchop/hg38.2bit");

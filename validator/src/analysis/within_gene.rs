@@ -22,7 +22,7 @@ pub fn within_gene_analysis(mut df: DataFrame, tools_to_compare: Vec<&str>) -> P
                 genes_with_shitty_guides.push(gene);
                 good_guide.push(Some(false));
                 println!("Gene: {}, Efficacy: {}", gene, score);
-            } else if score > 75.0 { good_guide.push(Some(true)); } else { good_guide.push(None)}
+            } else if score > 905.0 { good_guide.push(Some(true)); } else { good_guide.push(None)}
         }}
     let guide_quality_series = Series::new(PlSmallStr::from("guide_quality"), good_guide);
 
@@ -351,9 +351,11 @@ use plotters::prelude::*;
 
 use std::error::Error;
 use std::io;
+use std::process::Command;
 use polars::prelude::*;
 use plotters::prelude::*;
-
+use plotters_backend::FontTransform::Rotate90;
+use tracing::{error, info};
 
 pub fn plot_stripplot_for_tool(
     df: &DataFrame,
@@ -600,3 +602,241 @@ pub fn plot_stripplot_for_tool(
     println!("Saved plot to {}", output_path);
     Ok(())
 }
+
+/// For every tool: how often does “lowest-scoring guide in a gene” really
+/// correspond to a *poor* (<50) guide?
+///
+/// Returns a Polars DataFrame with:
+/// ┌────────┬──────────────┬────────────┬────────────┐
+/// │ tool   ┆ correct_cnt  ┆ total_genes┆ pct_correct│
+/// └────────┴──────────────┴────────────┴────────────┘
+/// For every tool: how often does its *lowest-scoring* guide in a gene
+/// really correspond to a poor (< 50) guide?
+/// For each tool: percentage of genes where its **lowest-scoring guide**
+/// is indeed a *poor* guide (<50 efficacy).
+pub fn bad_guide_detection_summary(
+    df: &DataFrame,
+    tools: Vec<&str>,
+) -> PolarsResult<DataFrame> {
+    // ── 1) build a mask of genes that contain ≥1 poor guide ──────────────
+    let genes_with_poor = df.clone()
+        .lazy()
+        .filter(col("guide_quality").eq(lit(false)))
+        .select([col("Gene")])
+        .unique(None, UniqueKeepStrategy::First)
+        .collect()?
+        .column("Gene")?
+        .str()?
+        .into_no_null_iter()
+        .map(|s| s.to_owned())
+        .collect::<HashSet<_>>();
+
+    // ── 2) container for results ─────────────────────────────────────────
+    let mut tool_col  = Vec::<&str>::new();
+    let mut correct_c = Vec::<u32>::new();
+    let mut total_c   = Vec::<u32>::new();
+    let mut pct_c     = Vec::<f64>::new();
+
+    // ── 3) per-tool evaluation  ─────────────────────────────────────────
+    for tool in tools {
+        // Take only the three columns we need.
+        let df_small = df.select(["Gene", &tool, "guide_quality"])?;
+
+
+        let df_min = df_small
+            .lazy()
+            .sort_by_exprs(
+                [col("Gene"), col(tool)],
+                SortMultipleOptions {
+                    descending:     vec![false, false], // ascending for both
+                    nulls_last:     vec![false, false],         // default
+                    multithreaded:  true,               // default
+                    maintain_order: false,              // default
+                    limit: None,
+                },
+            )
+            .group_by([col("Gene")])
+            .agg([col("guide_quality").first().alias("lowest_is_good")])
+            .collect()?;
+
+        // Now df_min has one row per gene; count only genes we care about.
+        let mut total = 0u32;
+        let mut correct = 0u32;
+
+        let gene_series = df_min.column("Gene")?.str()?;
+        let qual_series = df_min.column("lowest_is_good")?.bool()?;
+
+        for i in 0..df_min.height() {
+            let gene = gene_series.get(i).unwrap();
+            if !genes_with_poor.contains(gene) {
+                continue; // gene had no poor guides → skip
+            }
+            total += 1;
+            if qual_series.get(i).map(|b| !b).unwrap_or(false) {
+                // lowest guide is *not* good ⇒ truly poor ⇒ correct
+                correct += 1;
+            }
+        }
+
+        tool_col .push(tool);
+        correct_c.push(correct);
+        total_c  .push(total);
+        pct_c    .push(if total > 0 {
+            100.0 * correct as f64 / total as f64
+        } else { 0.0 });
+    }
+
+    let summary = DataFrame::new(vec![
+        Column::from(Series::new("tool".into(), tool_col)),
+        Column::from(Series::new("correct_cnt".into(), correct_c)),
+        Column::from(Series::new("total_genes".into(), total_c)),
+        Column::from(Series::new("pct_correct".into(), pct_c)),
+    ])?;
+
+    Ok(summary)
+}
+
+use std::fs::{create_dir_all, File};
+use std::path::Path;
+
+use polars::prelude::*;
+
+pub fn run_bad_guide_summary(
+    df: &DataFrame,
+    tools: Vec<&str>,
+    output_dir: &str,
+) -> PolarsResult<()> {
+    info!("Running bad-guide summary for {tools:?}");
+
+    //-------------------------------------------------------------------
+    // 1)  Create the summary table in Rust
+    //-------------------------------------------------------------------
+    let summary = bad_guide_detection_summary(df, tools)?;
+
+    //-------------------------------------------------------------------
+    // 2)  Persist it so Python can read it
+    //-------------------------------------------------------------------
+    let out_path      = Path::new(output_dir);
+    if !out_path.exists() {
+        create_dir_all(out_path).map_err(|e| polars_err(Box::new(e)))?;
+    }
+    let csv_path = out_path.join("bad_guide_summary.csv");
+
+    info!("Writing summary → {}", csv_path.display());
+    let mut file = File::create(&csv_path).map_err(|e| polars_err(Box::new(e)))?;
+    CsvWriter::new(&mut file)
+        .include_header(true)
+        .with_separator(b',')
+        .finish(&mut summary.clone())?;   // clone so we don’t consume
+
+    //-------------------------------------------------------------------
+    // 3)  Call the Python plotting helper inside *tool_comparison_venv*
+    //-------------------------------------------------------------------
+    let venv_python = crate::helper_functions::project_root()
+        .join("scripts/tool_comparison_venv/bin/python")
+        .to_string_lossy()
+        .to_string();
+
+    let script_path = "./scripts/plot_bad_guide_summary.py";
+
+    let mut cmd = Command::new(venv_python);
+    cmd.arg(script_path)
+        .arg("--input").arg(csv_path.to_string_lossy().to_string())
+        .arg("--output-dir").arg(output_dir);
+
+    debug!("Running: {cmd:?}");
+    match cmd.output() {
+        Ok(out) if out.status.success() => {
+            info!("Python stdout:\n{}", String::from_utf8_lossy(&out.stdout));
+            Ok(())
+        }
+        Ok(out) => {
+            let msg = String::from_utf8_lossy(&out.stderr);
+            error!("Python failed:\n{msg}");
+            Err(PolarsError::ComputeError(format!("Python failed: {msg}").into()))
+        }
+        Err(e) => {
+            error!("Failed to spawn Python: {e}");
+            Err(PolarsError::ComputeError(format!("{e}").into()))
+        }
+    }
+}
+//
+//
+// pub fn plot_bad_guide_summary(df_sum: &DataFrame, out_path: &str) -> anyhow::Result<()> {
+//     // ── unpack data ──────────────────────────────────────────────────
+//     let mut tools: Vec<String> = df_sum
+//         .column("tool")?.str()?.into_no_null_iter()
+//         .map(|s| s.to_string()).collect();
+//     let pcts: Vec<f64> = df_sum
+//         .column("pct_correct")?.f64()?.into_no_null_iter().collect();
+//     let n = tools.len();
+//
+//     // truncate very long names for tick labels
+//     for name in &mut tools {
+//         if name.chars().count() > 20 {
+//             *name = format!("{}…", name.chars().take(18).collect::<String>());
+//         }
+//     }
+//
+//     // ── Okabe-Ito 8-colour palette ───────────────────────────────────
+//     let palette = [
+//         RGBColor(0, 119, 187),  RGBColor(255, 158, 74),
+//         RGBColor(0, 158, 115),  RGBColor(213, 94, 0),
+//         RGBColor(204, 121, 167), RGBColor(255, 102, 102),
+//         RGBColor(128, 128, 128), RGBColor(171, 171, 0),
+//     ];
+//
+//     // ── canvas ───────────────────────────────────────────────────────
+//     let root = BitMapBackend::new(out_path, (1050, 600)).into_drawing_area();
+//     root.fill(&WHITE)?;
+//
+//     let y_max = pcts.iter().cloned().fold(0./0., f64::max).ceil();
+//
+//     // NOTE the X-range is now **f64** so the bar coordinates match
+//     let mut chart = ChartBuilder::on(&root)
+//         .caption("Tool identifies the lowest-scoring guide as truly Poor", ("sans-serif", 22))
+//         .margin(15)
+//         .x_label_area_size(160)
+//         .y_label_area_size(70)
+//         .build_cartesian_2d(0f64..n as f64, 0f64..y_max)?;
+//
+//     chart.configure_mesh()
+//         .disable_mesh()
+//         .y_desc("% of genes (higher = better)")
+//         .y_label_formatter(&|v| format!("{v:.0}%"))
+//         .x_labels(n)
+//         .x_label_formatter(&|v| {
+//             let idx = *v as usize;
+//             if idx < tools.len() { tools[idx].clone() } else { String::new() }
+//         })
+//         .label_style(("sans-serif", 14))
+//         .x_label_style(("sans-serif", 13).into_font().transform(FontTransform::Rotate90))
+//         .axis_desc_style(("sans-serif", 16))
+//         .draw()?;
+//
+//     // gap = 10 % of the 1-unit slot width
+//     let gap = 0.10;
+//
+//     // ── bars ─────────────────────────────────────────────────────────
+//     chart.draw_series(
+//         pcts.iter().enumerate().map(|(i, pct)| {
+//             let x0 = i as f64 + gap;
+//             let x1 = (i + 1) as f64 - gap;
+//             Rectangle::new([(x0, 0.0), (x1, *pct)],
+//                            palette[i % palette.len()].filled())
+//         }),
+//     )?;
+//
+//     // ── value labels ────────────────────────────────────────────────
+//     chart.draw_series(
+//         pcts.iter().enumerate().map(|(i, pct)| {
+//             Text::new(format!("{pct:.1}%"),
+//                       (i as f64 + 0.5, pct + 1.0),     // centred, 1 % above bar
+//                       ("sans-serif", 14).into_font().color(&BLACK))
+//         }),
+//     )?;
+//
+//     Ok(())
+// }
+//
