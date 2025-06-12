@@ -148,23 +148,6 @@ pub fn colour_for_tool(name: &str) -> RGBColor {
 
 use polars::prelude::*;
 
-pub fn label_by_efficacy(df: DataFrame) -> PolarsResult<DataFrame> {
-    df.lazy()
-        .with_column(
-            when(col("efficacy").gt_eq(lit(80.0)))
-                .then(lit("good"))
-                .when(col("efficacy").gt_eq(lit(40.0)))
-                .then(lit("moderate"))
-                .otherwise(lit("bad"))
-                .alias("quality"),
-        )
-        .collect()        // back to an eager DataFrame
-}
-
-
-use polars::prelude::*;
-
-use polars::prelude::*;
 
 /// Remove genes that have guides in only one quality class
 pub fn drop_mono_class_genes(df: DataFrame) -> PolarsResult<DataFrame> {
@@ -187,29 +170,212 @@ pub fn drop_mono_class_genes(df: DataFrame) -> PolarsResult<DataFrame> {
         None,
     )
 }
+/// --------------------------------------------------------------------
+/// 2.  Undersample the two classes so they contain the same number of rows
+///     (keeps min(class_size) rows from each bucket)
+/// --------------------------------------------------------------------
+pub fn undersample_equal_classes(
+    df: &DataFrame,
+    efficacy_col: &str,
+    cutoff: f64,
+    seed: Option<u64>,
+) -> PolarsResult<DataFrame> {
+    // ── 1) attach the bucket column (lazy) --------------------------------
+    let with_bucket = df
+        .clone()
+        .lazy()
+        .with_column(
+            when(col(efficacy_col).gt_eq(lit(cutoff)))
+                .then(lit("good"))
+                .otherwise(lit("other"))
+                .alias("__bucket__"),
+        )
+        .collect()?;
 
+    // ── 2) minority bucket size ------------------------------------------
+    let min_n = with_bucket
+        .clone()
+        .lazy()
+        .group_by([col("__bucket__")])
+        .agg([col("__bucket__").count().alias("n")])
+        .select([col("n").min().alias("min_n")])
+        .collect()?
+        .column("min_n")?
+        .u32()?
+        .get(0)
+        .unwrap_or(0) as usize;
+
+    if min_n == 0 {
+        return with_bucket.drop("__bucket__");      // nothing to balance
+    }
+
+    // ── 3) sample each bucket down to min_n --------------------------------
+    let balanced = with_bucket
+        .group_by(["__bucket__"])?
+        .apply(|g| g.sample_n_literal(min_n, false, true, seed))?;
+
+    // ── 4) clean up helper column & return --------------------------------
+    balanced.drop("__bucket__")
+}
 
 
 use polars::prelude::*;
+use std::collections::HashSet;
 
-/// Down-sample every class (good/moderate/bad) to the size of the smallest one
-pub fn undersample_equal_classes(
+/// -------------------------------------------------------------------------
+///  Stats returned by `stratified_within_gene_balance`
+/// -------------------------------------------------------------------------
+#[derive(Debug)]
+pub struct StratifiedSampleStats {
+    pub total_genes: usize,            // genes in the original frame
+    pub kept_genes: usize,             // genes that passed the ≥1-good ≥1-poor filter
+    pub dropped_genes: Vec<String>,    // list of genes that were removed
+    pub guides_per_gene: DataFrame,    // columns: Gene | n_guides_kept (after sampling)
+}
+
+/// -------------------------------------------------------------------------
+///  Balance good : poor within each gene
+///     – `good_cutoff`  … efficacy ≥ cutoff  ⇒  "good"
+///     – efficacy  < cutoff                  ⇒  "poor"
+///  Returns `(balanced_df, stats)`
+/// -------------------------------------------------------------------------
+
+pub fn stratified_within_gene_balance(
     df: &DataFrame,
-    class_col: &str,
+    efficacy_col: &str,
+    good_cutoff: f64,
+    min_gap: Option<f64>,          // ← already supported
     seed: Option<u64>,
-) -> PolarsResult<DataFrame> {
-    // size of the smallest bucket
-    let min_n = df
-        .group_by([class_col])?
-        .count()?
-        .column("count")?
-        .u32()?
-        .min()
-        .unwrap() as usize;
+) -> PolarsResult<(DataFrame, StratifiedSampleStats)> {
+    // ── 0) bucket “good” vs “poor” ───────────────────────────────────────
+    let with_bucket = df
+        .clone()
+        .lazy()
+        .with_column(
+            when(col(efficacy_col).gt_eq(lit(good_cutoff)))
+                .then(lit("good"))
+                .otherwise(lit("poor"))
+                .alias("__bucket"),
+        )
+        .collect()?;
 
-    // sample `min_n` rows without replacement inside each class
-    df.group_by([class_col])?
-        .apply(|g| g.sample_n_literal(min_n, /*replace*/ false, /*shuffle*/ true, seed))?
-        // .apply already concatenates the groups; no explode needed
-        .pipe(Ok)
+    // ── 1) genes that pass the gap / both-bucket test ────────────────────
+    let genes_keep = with_bucket
+        .clone()
+        .lazy()
+        .group_by([col("Gene")])
+        .agg([
+            col("__bucket").n_unique().alias("nq"),
+            col(efficacy_col)
+                .filter(col("__bucket").eq(lit("good")))
+                .max()
+                .alias("max_good"),
+            col(efficacy_col)
+                .filter(col("__bucket").eq(lit("poor")))
+                .min()
+                .alias("min_poor"),
+        ])
+        .filter(
+            col("nq").eq(lit(2)).and(match min_gap {
+                Some(g) => (col("max_good") - col("min_poor")).gt(lit(g)),
+                None => lit(true),
+            }),
+        )
+        .select([col("Gene")])
+        .collect()?;   // eager for joins later
+
+    // ── 2) bookkeeping sets ─────────────────────────────────────────────
+    let all_genes: HashSet<_> = df
+        .column("Gene")?
+        .str()?
+        .into_no_null_iter()
+        .map(String::from)
+        .collect();
+
+    let kept_gene_set: HashSet<_> = genes_keep
+        .column("Gene")?
+        .str()?
+        .into_no_null_iter()
+        .map(String::from)
+        .collect();
+
+    let dropped_genes: Vec<_> = all_genes.difference(&kept_gene_set).cloned().collect();
+
+    // ── 3) restrict to eligible genes ────────────────────────────────────
+    let eligible = with_bucket.join(
+        &genes_keep,
+        ["Gene"],
+        ["Gene"],
+        JoinArgs::from(JoinType::Inner),
+        None,
+    )?;
+
+    // ── 4) balance within each gene ──────────────────────────────────────
+    let balanced = eligible
+        .group_by_stable(["Gene"])?
+        .apply(|g| {
+            let good = g.filter(&g.column("__bucket")?.str()?.equal("good"))?;
+            let poor = g.filter(&g.column("__bucket")?.str()?.equal("poor"))?;
+            let k = good.height().min(poor.height());
+            if k == 0 {
+                return Ok(DataFrame::empty());
+            }
+            let sample = |df: DataFrame| df.sample_n_literal(k, false, true, seed);
+            let mut keep = sample(good)?;
+            keep.vstack_mut(&sample(poor)?)?;
+            Ok(keep)
+        })?;
+
+    // ── 5a) guides kept per gene (already used downstream) ───────────────
+    let guides_per_gene = balanced
+        .clone()
+        .lazy()
+        .group_by([col("Gene")])
+        .agg([col("Gene").count().alias("n_guides_kept")])
+        .collect()?;
+
+    // ── 5b) NEW: total + dropped guides per gene + status ────────────────
+    let guides_total = with_bucket
+        .clone()
+        .lazy()
+        .group_by([col("Gene")])
+        .agg([col("Gene").count().alias("n_guides_total")])
+        .collect()?;
+
+    let mut per_gene_stats = guides_total
+        .join(
+            &guides_per_gene,
+            ["Gene"],
+            ["Gene"],
+            JoinArgs::from(JoinType::Left),
+            None,
+        )?
+        .lazy()
+        .with_column(
+            col("n_guides_kept").fill_null(lit(0)).alias("n_guides_kept"),
+        )
+        .with_column(
+            (col("n_guides_total") - col("n_guides_kept")).alias("n_guides_dropped"),
+        )
+        .with_column(
+            when(col("n_guides_kept").eq(lit(0)))
+                .then(lit("dropped"))
+                .otherwise(lit("kept"))
+                .alias("status"),
+        )
+        .collect()?;
+
+    // ── 5c) NEW: persist stats → CSV (helper handles dirs & headers) ────
+    let csv_out = "./stats/stratified_balance_stats.csv";
+    dataframe_to_csv(&mut per_gene_stats, csv_out, true)?;
+
+    // ── 6) global stats & return ─────────────────────────────────────────
+    let stats = StratifiedSampleStats {
+        total_genes: all_genes.len(),
+        kept_genes: kept_gene_set.len(),
+        dropped_genes,
+        guides_per_gene,
+    };
+
+    Ok((balanced.drop("__bucket")?, stats))
 }

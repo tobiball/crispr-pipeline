@@ -1,6 +1,6 @@
 use polars::prelude::*;
 
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use crate::helper_functions::read_csv;
 use crate::models::Dataset;
 
@@ -74,6 +74,9 @@ impl Dataset for AvanaDataset {
             )
             .collect()?;
 
+        debug!("After Gene-clean: {:>7} rows", df_annot_clean.height()); // ← NEW
+
+
         // Modify the DataFrame processing part to use two potential windows
         let df = df_annot_clean.clone()
             .lazy()
@@ -116,6 +119,35 @@ impl Dataset for AvanaDataset {
             .select(&[col("*")])
             .collect()?;
 
+
+
+        let uppercase_cols: Vec<Expr> = df
+            .get_column_names()
+            .iter()
+            .filter(|name| {
+                let lower = name.to_lowercase();
+                lower.contains("sgrna") || lower.contains("sequence") || lower.contains("pam")
+            })
+            .map(|name| {
+                let name_str: &str = name.as_ref();   // now unambiguous
+
+                col(name_str)                         // S = &str implements Into<PlSmallStr>
+                    .str()
+                    .to_uppercase()
+                    .alias(name_str)                  // same `&str` again
+            })
+            .collect();
+
+
+
+        let df = df.lazy()
+            .with_columns(uppercase_cols)
+            .collect()?;
+
+        debug!("After all filters: {:>7} rows", df.height());            // ← NEW
+
+
+
         debug!("DataFrame after processing: {:?}", df);
 
 
@@ -147,89 +179,6 @@ use crate::models::polars_err;
 const PAM_LENGTH: usize = 3; // NGG PAM length
 const GENOMIC_CONTEXT_PADDING: i64 = 50; // Get additional sequence for PAM extraction
 
-/// Add PAM sequences to guides in the DataFrame
-// pub fn augment_guides_with_pam(mut df: DataFrame) -> PolarsResult<DataFrame> {
-//     info!("Augmenting guides with PAM sequences with genomic context for debugging purposes");
-//
-//     let chromosome = df.column("chromosome")?.str()?;
-//     let start = df.column("start")?.i64()?;
-//     let end = df.column("end")?.i64()?;
-//     let strand = df.column("strand")?.str()?;
-//     let guide_seq = df.column("sgRNA")?.str()?;
-//
-//     let mut pam_sequences = Vec::new();
-//     let mut sequences_with_pam = Vec::new();
-//
-//
-//     for i in 0..df.height() {
-//         // Use pattern matching for safer unwrapping
-//         let chrom = match chromosome.get(i) {
-//             Some(c) => c,
-//             None => {
-//                 debug!("Missing chromosome for row {}, using empty string", i);
-//                 ""
-//             }
-//         };
-//
-//         let start_pos = match start.get(i) {
-//             Some(s) => s,
-//             None => {
-//                 debug!("Missing start position for row {}, skipping PAM extraction", i);
-//                 continue;
-//             }
-//         };
-//
-//         let guide = match guide_seq.get(i) {
-//             Some(g) => g,
-//             None => {
-//                 debug!("Missing guide sequence for row {}, using empty string", i);
-//                 ""
-//             }
-//         };
-//
-//         let strand_val = match strand.get(i) {
-//             Some(s) => s,
-//             None => {
-//                 debug!("Missing strand for row {}, assuming '+'", i);
-//                 "+"
-//             }
-//         };
-//
-//         // Extract genomic sequence with error handling
-//         let region_seq = match extract_genomic_sequence(chrom, start_pos - 1, start_pos + 22) {
-//             Ok(seq) => seq,
-//             Err(e) => {
-//                 debug!("Failed to extract genomic sequence for row {}: {}", i, e);
-//                 String::new()
-//             }
-//         };
-//
-//         // Process sequence based on strand
-//         let sequence_to_use = if strand_val == "+" {
-//             region_seq.clone()
-//         } else {
-//             reverse_complement(&region_seq)
-//         };
-//
-//         // PAM position with bounds checking
-//         let pam = sequence_to_use[20..23].to_string();
-//
-//         let full_seq = format!("{}{}", guide, pam);
-//
-//         // debug!("Extracted genomic context: {}", sequence_to_use);
-//         // debug!("Debugging guide #{}: chrom={}, pos={}, strand={}", i, chrom, start_pos, strand_val);
-//         // debug!("Guide seq: {}, PAM seq: {}", guide, pam);
-//
-//         pam_sequences.push(pam);
-//         sequences_with_pam.push(full_seq);
-//     }
-//
-//     df.with_column(Series::new(PlSmallStr::from("pam"), pam_sequences))?;
-//     df.with_column(Series::new(PlSmallStr::from("sequence_with_pam"), sequences_with_pam))?;
-//
-//     Ok(df)
-// }
-
 
 pub fn augment_guides_with_pam(mut df: DataFrame) -> PolarsResult<DataFrame> {
     info!("Augmenting guides with PAM sequences with genomic context for debugging purposes");
@@ -260,8 +209,11 @@ pub fn augment_guides_with_pam(mut df: DataFrame) -> PolarsResult<DataFrame> {
         };
 
         // — 1) build 30 nt window for DeepSpCas9: [pos-4 .. pos+26)
-        let raw30 = extract_genomic_sequence(chrom, pos - 4, pos + 26)
-            .unwrap();
+        let raw30 = if strand_val == "+" {
+            extract_genomic_sequence(chrom, pos - 5, pos + 25).unwrap()  // ← Shift by 1 for positive
+        } else {
+            extract_genomic_sequence(chrom, pos - 4, pos + 26).unwrap()  // ← Keep original for negative
+        };
         let seq30 = if strand_val == "+" {
             raw30.clone()
         } else {
@@ -270,7 +222,7 @@ pub fn augment_guides_with_pam(mut df: DataFrame) -> PolarsResult<DataFrame> {
 
         // — 2) run your *old* PAM‐extraction on a 23 nt slice [pos-1 .. pos+22)
         let region_seq = extract_genomic_sequence(chrom, pos - 1, pos + 22)
-            .unwrap_or_else(|_| String::new());
+            .unwrap();
         let sequence_to_use = if strand_val == "+" {
             region_seq.clone()
         } else {
@@ -282,7 +234,11 @@ pub fn augment_guides_with_pam(mut df: DataFrame) -> PolarsResult<DataFrame> {
         } else {
             String::new()
         };
-        let full23 = format!("{}{}", guide, pam);
+
+        let guide_fixed = extend_to_20nt(guide, &sequence_to_use).unwrap();
+
+
+        let full23 = format!("{}{}", guide_fixed, pam);
 
         // — 3) push into our columns
         sequences_deepspcas9.push(seq30);
@@ -343,3 +299,30 @@ fn reverse_complement(seq: &str) -> String {
         })
         .collect()
 }
+
+/// Extend a 19-nt guide to a full 20-nt guide by **prepending** the first
+/// genomic base (index 0 of the 23-nt context = 5′ end of protospacer).
+///
+/// Returns `Some(fixed)` on success, or `None` when the context is too
+/// short / ambiguous (‘N’), so the caller can skip that row.
+#[inline]
+fn extend_to_20nt(guide: &str, context23: &str) -> Option<String> {
+    if guide.len() == 19 {
+        match context23.chars().nth(0) {
+            Some(b) if !matches!(b, 'N' | 'n') => {
+                let mut g = String::with_capacity(20);
+                g.push(b);        // prepend the missing 5′ base
+                g.push_str(guide);
+                Some(g)
+            }
+            _ => {
+                warn!("Could not derive 1ˢᵗ base for 19-nt guide {}", guide);
+                None
+            }
+        }
+    } else {
+        Some(guide.to_owned())
+    }
+}
+
+

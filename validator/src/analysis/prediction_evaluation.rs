@@ -29,6 +29,7 @@ pub fn evaluate_prediction_tools(
     df: &DataFrame,
     tool_columns: &[&str],
     efficacy_column: &str,
+    thresholds: Option<&str>,
     efficacy_poor_threshold: f64,
     efficacy_good_threshold: f64,
     min_good_coverage: f64,
@@ -52,6 +53,19 @@ pub fn evaluate_prediction_tools(
     // Make a copy of the DataFrame to avoid modifying the original
     let mut df_clone = df.clone();
 
+    // Insert this before CsvWriter::new(&mut file)…
+    error!("DEBUG: writing CSV, columns = {:?}", df.get_column_names());
+    for &tool in tool_columns {
+        let s = df.column(tool)?;
+        // Cast to a Float64 ChunkedArray
+        let arr = s.f64()?;
+        // Compute min and max, defaulting to NaN if the column is empty
+        let min = arr.min().unwrap_or(f64::NAN);
+        let max = arr.max().unwrap_or(f64::NAN);
+        error!("DEBUG:   {:20} → [{:.3}, {:.3}]", tool, min, max);
+    }
+
+
     // Write to CSV
     let mut file = std::fs::File::create(&temp_csv_path).map_err(|e| polars_err(Box::new(e)))?;
     CsvWriter::new(&mut file)
@@ -73,20 +87,26 @@ pub fn evaluate_prediction_tools(
 
 
     // Build the command
+    // Build the command
     let mut cmd = Command::new(venv_python);
     cmd.arg(&script_path)
         .arg("--input").arg(&temp_csv_path)
         .arg("--output").arg(output_dir)
         .arg("--efficacy-col").arg(efficacy_column)
         .arg("--poor-threshold").arg(efficacy_poor_threshold.to_string())
-        .arg("--good-threshold").arg(efficacy_good_threshold.to_string())
-        .arg("--min-coverage").arg(min_good_coverage.to_string());
+        .arg("--good-threshold").arg(efficacy_good_threshold.to_string());
 
     // Add tool columns if specified
     if !tool_columns.is_empty() {
         let tools_arg = tool_columns.join(",");
         cmd.arg("--tools").arg(tools_arg);
     }
+
+    // Pass along pre-defined thresholds CSV
+    if !thresholds.is_none() {
+        cmd.arg("--thresholds").arg(thresholds.unwrap().to_string());
+    }
+
 
     // Run the Python script
     info!("Running Python visualization script: {}", script_path);

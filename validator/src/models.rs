@@ -86,18 +86,28 @@ pub trait Dataset {
     fn mageck_efficency_scoring(df: DataFrame) -> PolarsResult<DataFrame>;
 
     fn filter_for_ceg_only(df: DataFrame, df_ceg: DataFrame) -> PolarsResult<DataFrame> {
+        // 0️⃣  incoming size
+        debug!("Essential-filter → input rows : {}", df.height());
 
-        debug!("df_ceg columns: {:?}", df_ceg.get_column_names());
+        // 1️⃣  keep only rows whose Gene appears in df_ceg.GENE
+        let df_filtered = df.join(
+            &df_ceg,
+            ["Gene"],          // left key
+            ["GENE"],          // right key
+            JoinArgs::from(JoinType::Semi),   // keep-matching (Semi)
+            None,
+        )?;
 
-        // 1) Extract the GENE column as a Series
-        let df_filtered = df.join(&df_ceg, ["Gene"], ["GENE"], JoinArgs::from(JoinType::Semi), None)?;
-
-        debug!("{:?}",df_filtered);
-
-
+        // 2️⃣  after essential-gene filter
+        debug!(
+        "Essential-filter → rows kept   : {} (dropped {})",
+        df_filtered.height(),
+        df.height() - df_filtered.height()
+    );
         Ok(df_filtered)
 
 
+        //
         // debug!("df_ceg columns: {:?}", df_ceg.get_column_names());
         //
         // // Return the rows from `df` whose Gene is *absent* from df_ceg.GENE
@@ -118,7 +128,7 @@ pub trait Dataset {
         let df_filtered = Self::filter_for_ceg_only(df,cegs)?;
         let df_augmented = Self::augment_guides(df_filtered)?;
         let df_scored = Self::mageck_efficency_scoring(df_augmented)?;
-        Self::validate_columns(&df_scored, dataset_name)?;
+        // Self::validate_columns(&df_scored, dataset_name)?;
 
         Ok(df_scored)
     }

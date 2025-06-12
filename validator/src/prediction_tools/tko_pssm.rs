@@ -108,7 +108,8 @@ pub fn process_dataframe(df: &DataFrame, sequence_column: &str) -> PolarsResult<
     for i in 0..df.height() {
         if let Some(seq) = seq_strs.get(i) {
             // Trim the sequence to ensure clean input (no whitespace)
-            let clean_seq = seq.trim();
+            let clean_seq = (&seq.trim()[0..20]);
+
 
             // Calculate raw score
             if let Some(raw_score) = calculate_pssm_score(clean_seq) {

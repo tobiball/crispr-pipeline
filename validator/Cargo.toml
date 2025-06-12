@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-polars = { version = "0.46.0", features = [ "csv", "lazy","strings","semi_anti_join", "regex","dtype-array","polars-ops","abs", "round_series","polars-lazy","cov"] }
+polars = { version = "0.46.0", features = ["csv", "lazy", "strings", "semi_anti_join", "regex", "dtype-array", "polars-ops", "abs", "round_series", "polars-lazy", "cov"] }
 polars-ops = "0.46.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
@@ -40,6 +40,8 @@ ndarray-linalg = { version = "0.16", features = ["openblas-static"] }
 resvg = { version = "0.45.0", optional = true }
 which = "7.0.2"
 serde = { version = "1.0.215", features = ["derive"] }
+pyo3 = "0.25.0"
+calamine = "0.21.2"
 
 # Add a features section to enable PNG export
 [features]
