@@ -545,114 +545,242 @@ class PredictionEvaluator:
         df_steps.to_csv(self.out / "lr_plus_steps.csv", index=False)
         df_steps.to_json(self.out / "lr_plus_steps.json", orient="records", indent=2)
 
+
     def _plot_lr_tables(self):
+        """
+        Render CRISPR predictor tables with
+          • pastel count columns,
+          • vivid, wider SENS./SPEC. columns separated by a thick rule,
+          • automatic white text on dark cells for legibility,
+          • a centred caption placed 2 pt above each table.
+        """
+        import matplotlib.colors as mcol
+        import matplotlib.pyplot as plt
+        import pandas as pd
+
+        # --- caption styling constants ----------------------------------
+        CAPTION_FONT  = 11          # pt
+        CAPTION_STYLE = "oblique"
+        CAPTION_PAD_PT = 10          # vertical gap in *points*
+
+        # ----------------------------------------------------------------
         df = pd.read_csv(self.out / "lr_plus_steps.csv")
-        count_cols = ["TP", "FN", "FP", "TN"]
-        rate_cols  = ["sens.", "spec."]
-        df[rate_cols] = df[rate_cols].round(2)
+
+        count_cols     = ["TP", "FN", "FP", "TN"]
+        rate_cols_raw  = ["sens.", "spec."]
+        rate_cols_disp = ["Sensitivity", "Specificity"]
+
+        # round the two rate columns for display
+        df[rate_cols_raw] = df[rate_cols_raw].round(2)
         comparisons = df["comparison"].unique()
 
+        # fixed row-label colours ----------------------------------------
+        # fixed row-label colours ----------------------------------------
+        model_colors = {
+            "TKO PSSM":           (130/255, 130/255, 130/255),
+            "Moreno-Mateos":      (90/255,  100/255, 100/255),
+
+            "Doench Rule Set 2":  (255/255, 140/255, 0/255),
+            "Doench Rule Set 3":  (220/255, 110/255, 0/255),
+
+            "DeepCRISPR":         (138/255, 43/255,  226/255),
+            "DeepSpCas9":         (123/255, 31/255,  162/255),
+            "TransCRISPR":        (186/255, 85/255,  211/255),
+
+            "Linear Consensus":   (34/255,  139/255, 34/255),
+            "Logistic Consensus": (0/255,   100/255, 0/255)        }
+
+
+        # smooth yellow–blue gradient for counts/rates -------------------
+        def yellow_blue_cmap():
+            colors = [
+
+                "#c3d2d9", "#9ebfd3", "#79abcc", "#5595c4",
+                "#2f7db9", "#1c6db0", "#0a5aa2", "#094b8d", "#083b75"
+            ]
+            return mcol.LinearSegmentedColormap.from_list("yellow_blue", colors, N=256)
+
+        cmap_yb    = yellow_blue_cmap()
+        norm_rates = mcol.Normalize(vmin=0.5, vmax=1.0)
+
+        comparison_map = {
+            "Good vs (Moderate ∪ Poor)": "High efficacy (≥ 90 %) vs Sub-optimal (< 90 %)",
+            "(Good ∪ Moderate) vs Poor": "Adequate (≥ 60 %) vs Inadequate (< 60 %)",
+        }
+
+        # =================================================================
+        #  iterate through the two comparisons
+        # =================================================================
         for comp in comparisons:
-            sub    = df[df["comparison"] == comp].set_index("tool")
-            counts = sub[count_cols].values.astype(int)
-            rates  = sub[rate_cols].values.astype(float)
-            data   = np.hstack([counts, rates])
+            sub     = df[df["comparison"] == comp].set_index("tool")
+            counts  = sub[count_cols].values.astype(int)
+            rates   = sub[rate_cols_raw].values.astype(float)
 
-            # ─── PICK OUR NEW RED→GREEN RAMPS ─────────────────────
-            cmap_counts = create_sequential_red_to_blue()
-            cmap_rates  = create_sequential_red_to_blue()
-            # ──────────────────────────────────────────────────────
-
-            # build normalizers
-            norms_counts = []
-            for i in range(len(count_cols)):
-                vmin, vmax = counts[:, i].min(), counts[:, i].max()
-                if vmax == vmin: vmax += 1e-6
-                norms_counts.append(get_padded_normalizer(vmin, vmax, padding=0.2))
-            norm_rates = mcolors.Normalize(vmin=0.0, vmax=1.0)
-
-            # build cell_text
+            # -------- build cell text ------------------------------------
             cell_text = [
-                [str(x) for x in ct] + [""] + [f"{x:.2f}" for x in rt]
-                for ct, rt in zip(counts, rates)
+                [*map(str, ct_row), *(f"{v:.2f}" for v in rt_row)]
+                for ct_row, rt_row in zip(counts, rates)
             ]
 
-            # build cell_colors
+            # -------- build cell colours ---------------------------------
             cell_colors = []
-            for row in data:
-                row_colors = []
-                for j, val in enumerate(row):
-                    if j < len(count_cols):
-                        nv, cmap = norms_counts[j](val), cmap_counts
-                    else:
-                        nv, cmap = norm_rates(val),     cmap_rates
-                    if j in (1, 2):  # invert FN/FP
-                        nv = 1 - nv
-                    row_colors.append(cmap(nv))
-                # white spacer
-                row_colors = row_colors[:4] + [(1,1,1,1)] + row_colors[4:]
-                cell_colors.append(row_colors)
+            for rt_row in rates:
+                nv_s = norm_rates(rt_row[0])            # sensitivity
+                nv_p = norm_rates(rt_row[1])            # specificity
 
-            # finally draw the table **inside** the loop
-            fig, ax = plt.subplots(figsize=(6, max(len(sub) * 0.5, 4)))
+                pastel_counts = [
+                    (cmap_yb(nv_s)),       # TP  (sens-based)
+                    (cmap_yb(nv_s)),       # FN
+                    (cmap_yb(nv_p)),       # FP  (spec-based)
+                    (cmap_yb(nv_p)),       # TN
+                ]
+                vivid_rates  = [cmap_yb(nv_s), cmap_yb(nv_p)]
+                cell_colors.append(pastel_counts + vivid_rates)
+
+            # -------- draw table -----------------------------------------
+            fig_h = max(len(sub) * 0.55, 3.5)
+            fig, ax = plt.subplots(figsize=(5.0, fig_h))
+
+            # column-widths (normalised so they add up to 1.0) ------------
+            raw_cw  = [0.07]*len(count_cols) + [0.10]*len(rate_cols_disp)
+            factor  = 1.0 / sum(raw_cw)
+            colWidths = [w * factor for w in raw_cw]
+
             tbl = ax.table(
-                cellText   = cell_text,
-                cellColours= cell_colors,
-                rowLabels  = sub.index,
-                colLabels  = count_cols + [""] + rate_cols,
-                loc        = "center",
-                cellLoc    = "center",
+                cellText    = cell_text,
+                cellColours = cell_colors,
+                rowLabels   = sub.index,
+                colLabels   = count_cols + rate_cols_disp,
+                loc         = "center",
+                cellLoc     = "center",
+                colWidths   = colWidths,
             )
+
             tbl.auto_set_font_size(False)
-            tbl.set_fontsize(9)
-            tbl.scale(1, 1.3)
+            tbl.set_fontsize(10)
+            tbl.scale(1.2, 1.5)
+
+            # -------- thick rule before SENS./SPEC. ----------------------
+            for r in range(len(sub) + 1):               # header + body rows
+                divider = tbl[(r, len(count_cols))]     # first rate column
+                divider.set_linewidth(2.0)
+                divider.set_edgecolor("#303030")
+
+            # -------- per-cell styling ----------------------------------
             for (i, j), cell in tbl.get_celld().items():
-                cell.set_edgecolor('#cccccc')
-                cell.set_linewidth(0.5)
+                cell.set_edgecolor("#d0d0d0")
+                cell.set_linewidth(0.8)
 
-            ax.set_title(f"{self.db_name} – {comp.replace('∪','U')}", pad=2)
-            ax.axis("off")
-            plt.tight_layout(pad=0.3)
-            fig.savefig(self.out / f"lr_table_{comp.replace(' ', '_')}.png", dpi=300)
-            plt.close(fig)
+                # row-label background colours
+                if j == -1 and i > 0:
+                    mdl = cell.get_text().get_text()
+                    if mdl in model_colors:
+                        cell.set_facecolor(model_colors[mdl])
+                        cell.set_text_props(weight="bold", color="white")
 
+                # header cells
+                if i == 0:
+                    cell.set_text_props(weight="bold")
 
-    def _plot_binary_confusion_matrices(self):
-        import seaborn as sns
-        df = pd.read_csv(self.out / "lr_plus_steps.csv")
-        df_bin = df[df["comparison"] == "Good vs (Moderate ∪ Poor)"].set_index("tool")
-        for tool, row in df_bin.iterrows():
-            cm = np.array([[row["TP"], row["FP"]], [row["FN"], row["TN"]]])
-            fig, ax = plt.subplots(figsize=(5, 5))
-            sns.heatmap(
-                cm,
-                annot=True,
-                fmt="d",
-                cmap="Blues",
-                xticklabels=["Good", "Not Good"],
-                yticklabels=["Good", "Not Good"],
-                cbar=False,
-                ax=ax,
+                # widen SENS./SPEC. columns
+                if j >= len(count_cols):
+                    cell.set_width(cell.get_width() * 1.25)
+
+                # rate cells: bold + auto white/black text
+                if j >= len(count_cols) and i > 0:
+                    cell.set_text_props(weight="bold")
+                    r_, g_, b_, _ = cell.get_facecolor()
+                    luminance = 0.299*r_ + 0.587*g_ + 0.114*b_
+                    cell.get_text().set_color("white" if luminance < 0.45 else "#333333")
+
+            # -------- caption (figure-level text) ------------------------
+            # Draw once so the renderer exists
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+
+            # bounding box of the table (in *figure* coordinates)
+            bbox_tbl = tbl.get_window_extent(renderer=renderer) \
+                .transformed(fig.transFigure.inverted())
+
+            caption = f"{self.db_name}: {comparison_map.get(comp, comp)}"
+
+            # Convert 2 pt to figure-fraction for the small vertical gap
+            pad_fig_y = CAPTION_PAD_PT / (fig_h * fig.dpi)
+
+            fig.text(
+                x       = (bbox_tbl.x0 + bbox_tbl.x1) / 2,   # centred horizontally
+                y       = bbox_tbl.y1 + pad_fig_y,           # just above the table
+                s       = caption,
+                ha      = "center",
+                va      = "bottom",
+                fontsize= CAPTION_FONT,
+                style   = CAPTION_STYLE,
             )
-            ax.set_title(f"{tool}")
-            ax.set_xlabel("Predicted")
-            ax.set_ylabel("Actual")
-            plt.tight_layout()
+
+            # no axes visuals needed
+            ax.axis("off")
+
+            # ---------------------------------------------------------------
+            #  tiny “desirability” legend centred *below* the table
+            # ---------------------------------------------------------------
+            import matplotlib as mpl
+
+            # how tall the bar should be and how far we keep it from the table (figure-fraction units)
+            bar_h   = 0.025            # 2.5 % of figure height
+            bar_pad = 0.03            # 1.5 % gap
+
+            # position of the new colour-bar axis in figure-fraction coordinates
+            bar_left   = bbox_tbl.x0
+            bar_width  = bbox_tbl.width
+            bar_bottom = max(bbox_tbl.y0 - bar_pad - bar_h, 0)   # clamp at 0 so we stay inside the figure
+
+            cax = fig.add_axes([bar_left, bar_bottom, bar_width, bar_h])
+
+            # horizontal colour bar using the same cmap
+            norm = mpl.colors.Normalize(vmin=0, vmax=1)
+            cb   = mpl.colorbar.ColorbarBase(
+                cax,
+                cmap=cmap_yb,
+                norm=norm,
+                orientation="horizontal",
+                ticks=[],
+            )
+            cb.outline.set_visible(False)     # cleaner look
+
+            # add labels at both ends
+            cax.text(0.0, 0.5, "less desirable",
+                     ha="left",  va="center", fontsize=8, transform=cax.transAxes)
+            cax.text(1.0, 0.5, "more desirable",
+                     ha="right", va="center", fontsize=8,color="white", transform=cax.transAxes)
+
+            # make the background transparent so it blends in
+            cax.set_facecolor("none")
+
+
+# -------- save ------------------------------------------------
+            safe = comp.replace(" ", "_").replace("∪", "U")
             fig.savefig(
-                self.out / f"confusion_good_vs_rest_{tool.replace(' ', '_')}.{self.fmt}",
+                self.out / f"lr_table_{safe}.png",
                 dpi=300,
-                )
+                bbox_inches="tight",
+                pad_inches=0
+            )
             plt.close(fig)
+
+
 
     def _plot_lr_scatter(self, df: pd.DataFrame):
-        fig, ax = plt.subplots(figsize=(8, 7))
+        fig, ax = plt.subplots(figsize=(9, 7))
         df["quality"] = df["youden"]
         norm = plt.Normalize(df["quality"].min(), df["quality"].max())
+
         sizes = (
                 140
-                + 60 * (df["quality"] - df["quality"].min())
+                + 80 * (df["quality"] - df["quality"].min())
                 / (df["quality"].max() - df["quality"].min() + 1e-9)
         ).to_numpy()
+
+        # Use a professional colormap
         sc = ax.scatter(
             df["lr_g"],
             df["lr_gm"],
@@ -660,22 +788,55 @@ class PredictionEvaluator:
             c=df["quality"],
             cmap=plt.cm.viridis,
             norm=norm,
-            edgecolors="k",
+            edgecolors='#333333',
+            linewidth=0.8,
+            alpha=0.8,
             zorder=3,
         )
+
         cbar = fig.colorbar(sc, ax=ax)
-        cbar.set_label("Youden's J (higher = better)")
+        cbar.set_label("Youden's J Index", fontsize=11)
+
         annotate_conditional(ax, df)
-        ax.axvline(1, ls="--", color="grey", lw=1.1)
-        ax.axhline(1, ls="--", color="grey", lw=1.1)
-        ax.set_xlabel("LR+   Good vs (Moderate U Poor)")
-        ax.set_ylabel("LR+   (Good U Moderate) vs Poor")
+
+        # ---------- clearer grid ----------
+        ax.minorticks_on()                                    # add minor ticks
+        ax.grid(which='major', color='#B0B0B0', linewidth=0.8,
+                linestyle='-',  alpha=0.7, zorder=0)
+        ax.grid(which='minor', color='#D7D7D7', linewidth=0.5,
+                linestyle='--', alpha=0.4, zorder=0)
+
+        # Reference lines
+        ax.axvline(1, ls="--", color="#888888", lw=1.0, alpha=0.6)
+        ax.axhline(1, ls="--", color="#888888", lw=1.0, alpha=0.6)
+
+        # Academic axis labels
+        # Academic axis labels  – replace both original lines
+        ax.set_xlabel(r"LR$^{+}$ (High Efficacy vs Sub-optimal)", fontsize=12)
+        ax.set_ylabel(r"LR$^{+}$ (Adequate Efficacy vs Inadequate)", fontsize=12)
+
+
+        # Academic title
         ax.set_title(
-            f"{self.db_name} – Positive Likelihood Ratio \n"
-            "finding a 'good' or 'tolerable' guide"
+            f"{self.db_name}: Positive Likelihood Ratios for Efficacy Prediction\n"
+            "Discriminative Power Analysis",
+            fontsize=13,
+            pad=10
         )
+
+        # Add grid for readability
+        ax.grid(True, alpha=0.4, linestyle='-', linewidth=0.5)
+
+        # Set axis limits with some padding
+        x_min, x_max = df["lr_g"].min(), df["lr_g"].max()
+        y_min, y_max = df["lr_gm"].min(), df["lr_gm"].max()
+        x_pad = (x_max - x_min) * 0.05
+        y_pad = (y_max - y_min) * 0.05
+        ax.set_xlim(x_min - x_pad, x_max + x_pad)
+        ax.set_ylim(y_min - y_pad, y_max + y_pad)
+
         fig.tight_layout()
-        fig.savefig(self.out / f"lr_scatter.{self.fmt}", dpi=300)
+        fig.savefig(self.out / f"lr_scatter.{self.fmt}", dpi=300, bbox_inches='tight')
         plt.close(fig)
 
     def evaluate(self):
@@ -708,8 +869,6 @@ class PredictionEvaluator:
         # Render LR+ tables
         self._plot_lr_tables()
 
-        # Render binary confusion matrices
-        self._plot_binary_confusion_matrices()
 
         # Plot the LR+ scatter
         self._plot_lr_scatter(df)

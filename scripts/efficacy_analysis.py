@@ -30,7 +30,7 @@ def plot_efficacy_distribution(
         poor_threshold: float = 60.0,
         moderate_threshold: float = 90.0,
         outfile: str = "efficacy_distribution.png",
-        db_name: Optional[str] = None,
+        db_name: str = "nop",
 ) -> None:
     """Draw and save the stacked histogram."""
 
@@ -61,7 +61,7 @@ def plot_efficacy_distribution(
 
     plt.xlabel("Efficacy score")
     plt.ylabel("Count")
-    title = "Guide Efficency Distribution" + (f" – {db_name}" if db_name else "")
+    title = "Guide Efficacy Distribution" + (f" – {db_name}" if db_name else "")
     plt.title(title)
 
     # Legend High → Moderate → Poor
