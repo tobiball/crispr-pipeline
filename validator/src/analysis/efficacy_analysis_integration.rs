@@ -81,8 +81,7 @@ pub fn analyze_efficacy_distribution(
         // thresholds
         .arg("--poor").arg(poor_threshold.to_string())
         .arg("--moderate").arg(moderate_threshold.to_string())
-        // NEW: database name for the title
-        .arg("--db").arg(db_name)
+        .arg("--db").arg(db_name.to_string())
         .output()
         .map_err(|e| PolarsError::ComputeError(format!("Failed to run script: {e}").into()))?;
 

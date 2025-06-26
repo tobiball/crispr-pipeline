@@ -128,6 +128,7 @@ pub trait Dataset {
         let df_filtered = Self::filter_for_ceg_only(df,cegs)?;
         let df_augmented = Self::augment_guides(df_filtered)?;
         let df_scored = Self::mageck_efficency_scoring(df_augmented)?;
+
         // Self::validate_columns(&df_scored, dataset_name)?;
 
         Ok(df_scored)

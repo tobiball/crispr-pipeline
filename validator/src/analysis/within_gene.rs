@@ -1,45 +1,9 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-use log::debug;
+
 use polars::error::constants::FALSE;
 use polars::frame::DataFrame;
 use polars::prelude::{ChunkCompareEq, PolarsResult};
 
 use polars::prelude::*;
-
-pub fn within_gene_analysis(mut df: DataFrame, tools_to_compare: Vec<&str>) -> PolarsResult<DataFrame> {
-    // Add a binary column "guide_quality" indicating good or bad guides
-    let efficacy = df.column("efficacy")?.f64()?;
-    let binding = df.column("Gene")?.clone();
-    let genes = binding.str()?;
-    let mut genes_with_shitty_guides = Vec::new();
-    let mut good_guide = Vec::new();
-
-    // Iterate through all three in parallel
-    for i in 0..df.height() {
-        if let (Some(score), Some(gene)) = (efficacy.get(i), genes.get(i)) {
-            if score < 50.0 {
-                genes_with_shitty_guides.push(gene);
-                good_guide.push(Some(false));
-                println!("Gene: {}, Efficacy: {}", gene, score);
-            } else if score > 905.0 { good_guide.push(Some(true)); } else { good_guide.push(None)}
-        }}
-    let guide_quality_series = Series::new(PlSmallStr::from("guide_quality"), good_guide);
-
-    // Add it to your DataFrame
-    df.with_column(guide_quality_series)?;
-    let bad_guides_genes = Series::new(PlSmallStr::from("Gene"), genes_with_shitty_guides);
-    let df_bad_guides_genes = DataFrame::new(vec![Column::from(bad_guides_genes)])?;
-    let df_filtered = df_bad_guides_genes.left_join(&df, ["Gene"], ["Gene"])?;
-
-    let gene_series = df_filtered.column("Gene")?;
-
-    debug!("{:?}",df_filtered);
-
-
-
-    Ok(df_filtered)
-}
 
 
 use anyhow::Result;
@@ -602,56 +566,170 @@ pub fn plot_stripplot_for_tool(
     println!("Saved plot to {}", output_path);
     Ok(())
 }
+// Enhanced within_gene.rs functions with all requested improvements
+// Enhanced within_gene.rs with statistical analysis for 4-guide genes only
 
-/// For every tool: how often does “lowest-scoring guide in a gene” really
-/// correspond to a *poor* (<50) guide?
-///
-/// Returns a Polars DataFrame with:
-/// ┌────────┬──────────────┬────────────┬────────────┐
-/// │ tool   ┆ correct_cnt  ┆ total_genes┆ pct_correct│
-/// └────────┴──────────────┴────────────┴────────────┘
-/// For every tool: how often does its *lowest-scoring* guide in a gene
-/// really correspond to a poor (< 50) guide?
-/// For each tool: percentage of genes where its **lowest-scoring guide**
-/// is indeed a *poor* guide (<50 efficacy).
-pub fn bad_guide_detection_summary(
+use std::collections::HashMap;
+use std::collections::HashSet;
+use polars::prelude::*;
+use std::fs::{create_dir_all, File};
+use std::path::Path;
+use tracing::{ debug, warn};
+
+/// Statistical result for a single tool
+#[derive(Debug, Clone)]
+pub struct ToolStatistics {
+    pub tool_name: String,
+    pub correct: u32,
+    pub total: u32,
+    pub success_rate: f64,
+    pub ci_lower: f64,  // 95% confidence interval lower bound
+    pub ci_upper: f64,  // 95% confidence interval upper bound
+    pub std_error: f64,
+}
+
+/// Calculate binomial confidence interval using Wilson score method
+fn wilson_confidence_interval(successes: u32, total: u32, confidence: f64) -> (f64, f64) {
+    if total == 0 {
+        return (0.0, 0.0);
+    }
+
+    let n = total as f64;
+    let p = successes as f64 / n;
+    let z = if confidence == 0.95 { 1.96 } else { 2.576 }; // 95% or 99%
+
+    let denominator = 1.0 + z * z / n;
+    let centre_adjusted_probability = p + z * z / (2.0 * n);
+    let adjusted_standard_deviation = (p * (1.0 - p) / n + z * z / (4.0 * n * n)).sqrt();
+
+    let lower_bound = (centre_adjusted_probability - z * adjusted_standard_deviation) / denominator;
+    let upper_bound = (centre_adjusted_probability + z * adjusted_standard_deviation) / denominator;
+
+    (lower_bound.max(0.0), upper_bound.min(1.0))
+}
+
+/// Filter to genes with exactly 4 guides and exactly one bad guide (< 60 efficacy)
+pub fn filter_genes_with_four_guides_one_bad(df: &DataFrame) -> PolarsResult<DataFrame> {
+    info!("Filtering to genes with exactly 4 guides and exactly one bad guide (< 60 efficacy)");
+
+    // First, identify bad guides (< 60 efficacy)
+    let df_with_bad_flag = df
+        .clone()
+        .lazy()
+        .with_columns([
+            (col("efficacy").lt(lit(60.0))).alias("is_bad_guide")
+        ])
+        .collect()?;
+
+    // Count guides and bad guides per gene
+    let gene_stats = df_with_bad_flag
+        .lazy()
+        .group_by([col("Gene")])
+        .agg([
+            col("is_bad_guide").sum().alias("bad_guide_count"),
+            col("Gene").count().alias("total_guides")
+        ])
+        .collect()?;
+
+    // Find genes with exactly 4 guides and exactly 1 bad guide
+    let gene_series = gene_stats.column("Gene")?.str()?;
+    let bad_count_series = gene_stats.column("bad_guide_count")?.u32()?;
+    let total_count_series = gene_stats.column("total_guides")?.u32()?;
+
+    let mut genes_to_keep = Vec::new();
+    let mut distribution_summary = HashMap::new();
+
+    for i in 0..gene_stats.height() {
+        if let (Some(gene), Some(bad_count), Some(total_guides)) = (
+            gene_series.get(i),
+            bad_count_series.get(i),
+            total_count_series.get(i)
+        ) {
+            // Track all distributions for debugging
+            let key = (total_guides, bad_count);
+            *distribution_summary.entry(key).or_insert(0) += 1;
+
+            // Only keep genes with exactly 4 guides and exactly 1 bad guide
+            if total_guides == 4 && bad_count == 1 {
+                genes_to_keep.push(gene.to_string());
+            }
+        }
+    }
+
+    // Debug output
+    debug!("Gene distribution summary:");
+    for ((total, bad), count) in distribution_summary.iter() {
+        debug!("  {} genes with {} total guides, {} bad guides", count, total, bad);
+    }
+
+    info!("Found {} genes with exactly 4 guides and 1 bad guide", genes_to_keep.len());
+
+    // Filter the original dataframe
+    let genes_to_keep_df = DataFrame::new(vec![
+        Column::from(Series::new("Gene".into(), genes_to_keep))
+    ])?;
+
+    let mut filtered_df = df.inner_join(&genes_to_keep_df, ["Gene"], ["Gene"])?;
+
+    // Add guide quality columns
+    let efficacy_col = filtered_df.column("efficacy")?.f64()?;
+    let mut guide_quality = Vec::new();
+
+    for i in 0..filtered_df.height() {
+        if let Some(eff) = efficacy_col.get(i) {
+            if eff < 60.0 {
+                guide_quality.push(Some(false));
+            } else {
+                guide_quality.push(Some(true));
+            }
+        } else {
+            guide_quality.push(None);
+        }
+    }
+
+    let guide_quality_series = Series::new(PlSmallStr::from("guide_quality"), guide_quality);
+    let final_df = filtered_df.with_column(guide_quality_series)?;
+
+    let unique_genes: HashSet<_> = final_df.column("Gene")?.str()?.into_no_null_iter().collect();
+    info!("Final dataset: {} guides from {} genes (all with 4 guides, 1 bad each)",
+          final_df.height(),
+          unique_genes.len());
+
+    Ok(final_df.clone())
+}
+
+/// Enhanced bad guide detection with statistical analysis
+pub fn bad_guide_detection_with_statistics(
     df: &DataFrame,
     tools: Vec<&str>,
-) -> PolarsResult<DataFrame> {
-    // ── 1) build a mask of genes that contain ≥1 poor guide ──────────────
-    let genes_with_poor = df.clone()
-        .lazy()
-        .filter(col("guide_quality").eq(lit(false)))
-        .select([col("Gene")])
-        .unique(None, UniqueKeepStrategy::First)
-        .collect()?
+    db_name: &str,
+) -> PolarsResult<Vec<ToolStatistics>> {
+    info!("Running statistical bad guide detection analysis for {} tools", tools.len());
+
+    let total_genes = df
         .column("Gene")?
         .str()?
         .into_no_null_iter()
-        .map(|s| s.to_owned())
-        .collect::<HashSet<_>>();
+        .collect::<HashSet<_>>()
+        .len();
 
-    // ── 2) container for results ─────────────────────────────────────────
-    let mut tool_col  = Vec::<&str>::new();
-    let mut correct_c = Vec::<u32>::new();
-    let mut total_c   = Vec::<u32>::new();
-    let mut pct_c     = Vec::<f64>::new();
+    info!("Analyzing {} genes with exactly 4 guides and 1 bad guide each", total_genes);
 
-    // ── 3) per-tool evaluation  ─────────────────────────────────────────
+    let mut tool_stats = Vec::new();
+
+    // Per-tool evaluation
     for tool in tools {
-        // Take only the three columns we need.
         let df_small = df.select(["Gene", &tool, "guide_quality"])?;
-
 
         let df_min = df_small
             .lazy()
             .sort_by_exprs(
                 [col("Gene"), col(tool)],
                 SortMultipleOptions {
-                    descending:     vec![false, false], // ascending for both
-                    nulls_last:     vec![false, false],         // default
-                    multithreaded:  true,               // default
-                    maintain_order: false,              // default
+                    descending:     vec![false, false],
+                    nulls_last:     vec![false, false],
+                    multithreaded:  true,
+                    maintain_order: false,
                     limit: None,
                 },
             )
@@ -659,7 +737,6 @@ pub fn bad_guide_detection_summary(
             .agg([col("guide_quality").first().alias("lowest_is_good")])
             .collect()?;
 
-        // Now df_min has one row per gene; count only genes we care about.
         let mut total = 0u32;
         let mut correct = 0u32;
 
@@ -667,70 +744,143 @@ pub fn bad_guide_detection_summary(
         let qual_series = df_min.column("lowest_is_good")?.bool()?;
 
         for i in 0..df_min.height() {
-            let gene = gene_series.get(i).unwrap();
-            if !genes_with_poor.contains(gene) {
-                continue; // gene had no poor guides → skip
-            }
-            total += 1;
-            if qual_series.get(i).map(|b| !b).unwrap_or(false) {
-                // lowest guide is *not* good ⇒ truly poor ⇒ correct
-                correct += 1;
+            if let (Some(_gene), Some(is_good)) = (gene_series.get(i), qual_series.get(i)) {
+                total += 1;
+                if !is_good {
+                    // lowest guide is bad ⇒ correct identification
+                    correct += 1;
+                }
             }
         }
 
-        tool_col .push(tool);
-        correct_c.push(correct);
-        total_c  .push(total);
-        pct_c    .push(if total > 0 {
-            100.0 * correct as f64 / total as f64
-        } else { 0.0 });
+        let success_rate = if total > 0 {
+            correct as f64 / total as f64
+        } else { 0.0 };
+
+        // Calculate confidence interval and standard error
+        let (ci_lower, ci_upper) = wilson_confidence_interval(correct, total, 0.95);
+        let std_error = (success_rate * (1.0 - success_rate) / total as f64).sqrt();
+
+        let stats = ToolStatistics {
+            tool_name: tool.to_string(),
+            correct,
+            total,
+            success_rate,
+            ci_lower,
+            ci_upper,
+            std_error,
+        };
+
+        debug!("Tool {}: {}/{} = {:.1}% (95% CI: {:.1}%-{:.1}%)",
+               tool, correct, total, success_rate * 100.0,
+               ci_lower * 100.0, ci_upper * 100.0);
+
+        tool_stats.push(stats);
     }
 
-    let summary = DataFrame::new(vec![
-        Column::from(Series::new("tool".into(), tool_col)),
-        Column::from(Series::new("correct_cnt".into(), correct_c)),
-        Column::from(Series::new("total_genes".into(), total_c)),
-        Column::from(Series::new("pct_correct".into(), pct_c)),
-    ])?;
+    // Sort by success rate (best to worst)
+    tool_stats.sort_by(|a, b| b.success_rate.partial_cmp(&a.success_rate).unwrap_or(std::cmp::Ordering::Equal));
 
-    Ok(summary)
+    info!("Tool performance ranking (best to worst) with 95% confidence intervals:");
+    for (i, stats) in tool_stats.iter().enumerate() {
+        info!("  {}. {}: {:.1}% (95% CI: {:.1}%-{:.1}%) [{}/{} genes]",
+              i+1, stats.tool_name, stats.success_rate * 100.0,
+              stats.ci_lower * 100.0, stats.ci_upper * 100.0,
+              stats.correct, stats.total);
+    }
+
+    Ok(tool_stats)
 }
 
-use std::fs::{create_dir_all, File};
-use std::path::Path;
-
-use polars::prelude::*;
-
-pub fn run_bad_guide_summary(
-    df: &DataFrame,
-    tools: Vec<&str>,
+/// Write statistics to CSV with confidence intervals
+fn write_statistics_csv(
+    stats: &[ToolStatistics],
     output_dir: &str,
-) -> PolarsResult<()> {
-    info!("Running bad-guide summary for {tools:?}");
+) -> PolarsResult<String> {
+    let mut tool_names = Vec::new();
+    let mut correct_counts = Vec::new();
+    let mut total_counts = Vec::new();
+    let mut success_rates = Vec::new();
+    let mut ci_lowers = Vec::new();
+    let mut ci_uppers = Vec::new();
+    let mut std_errors = Vec::new();
 
-    //-------------------------------------------------------------------
-    // 1)  Create the summary table in Rust
-    //-------------------------------------------------------------------
-    let summary = bad_guide_detection_summary(df, tools)?;
-
-    //-------------------------------------------------------------------
-    // 2)  Persist it so Python can read it
-    //-------------------------------------------------------------------
-    let out_path      = Path::new(output_dir);
-    if !out_path.exists() {
-        create_dir_all(out_path).map_err(|e| polars_err(Box::new(e)))?;
+    for stat in stats {
+        tool_names.push(stat.tool_name.clone());
+        correct_counts.push(stat.correct);
+        total_counts.push(stat.total);
+        success_rates.push(stat.success_rate * 100.0); // Convert to percentage
+        ci_lowers.push(stat.ci_lower * 100.0);
+        ci_uppers.push(stat.ci_upper * 100.0);
+        std_errors.push(stat.std_error * 100.0);
     }
-    let csv_path = out_path.join("bad_guide_summary.csv");
 
-    info!("Writing summary → {}", csv_path.display());
-    let mut file = File::create(&csv_path).map_err(|e| polars_err(Box::new(e)))?;
+    let stats_df = DataFrame::new(vec![
+        Column::from(Series::new("tool".into(), tool_names)),
+        Column::from(Series::new("correct_cnt".into(), correct_counts)),
+        Column::from(Series::new("total_genes".into(), total_counts)),
+        Column::from(Series::new("pct_correct".into(), success_rates)),
+        Column::from(Series::new("ci_lower".into(), ci_lowers)),
+        Column::from(Series::new("ci_upper".into(), ci_uppers)),
+        Column::from(Series::new("std_error".into(), std_errors)),
+    ])?;
+
+    let stats_csv_path = Path::new(output_dir).join("bad_guide_statistics.csv");
+    let mut file = File::create(&stats_csv_path).map_err(|e| polars_err(Box::new(e)))?;
     CsvWriter::new(&mut file)
         .include_header(true)
         .with_separator(b',')
-        .finish(&mut summary.clone())?;   // clone so we don’t consume
+        .finish(&mut stats_df.clone())?;
+
+    Ok(stats_csv_path.to_string_lossy().to_string())
+}
+
+/// Enhanced run function with statistical analysis
+pub fn run_statistical_bad_guide_analysis(
+    df: &DataFrame,
+    tools: Vec<&str>,
+    output_dir: &str,
+    db_name: &str,
+) -> PolarsResult<()> {
+    info!("Running statistical bad-guide analysis for {tools:?}");
 
     //-------------------------------------------------------------------
-    // 3)  Call the Python plotting helper inside *tool_comparison_venv*
+    // 1) Filter to genes with exactly 4 guides and 1 bad guide
+    //-------------------------------------------------------------------
+    let filtered_df = filter_genes_with_four_guides_one_bad(df)?;
+
+    //-------------------------------------------------------------------
+    // 2) Run statistical analysis
+    //-------------------------------------------------------------------
+    let statistics = bad_guide_detection_with_statistics(&filtered_df, tools, db_name)?;
+
+    //-------------------------------------------------------------------
+    // 3) Create output directory and write files
+    //-------------------------------------------------------------------
+    let out_path = Path::new(output_dir);
+    if !out_path.exists() {
+        create_dir_all(out_path).map_err(|e| polars_err(Box::new(e)))?;
+    }
+
+    // Write statistics CSV
+    let stats_csv_path = write_statistics_csv(&statistics, output_dir)?;
+    info!("Writing statistics → {}", stats_csv_path);
+
+    // Write simple distribution info (all genes have 4 guides now)
+    let dist_df = DataFrame::new(vec![
+        Column::from(Series::new("guides_per_gene".into(), vec![4u32])),
+        Column::from(Series::new("gene_count".into(), vec![statistics[0].total])),
+    ])?;
+
+    let dist_csv_path = out_path.join("guide_distribution.csv");
+    let mut file = File::create(&dist_csv_path).map_err(|e| polars_err(Box::new(e)))?;
+    CsvWriter::new(&mut file)
+        .include_header(true)
+        .with_separator(b',')
+        .finish(&mut dist_df.clone())?;
+
+    //-------------------------------------------------------------------
+    // 4) Call the enhanced Python plotting script
     //-------------------------------------------------------------------
     let venv_python = crate::helper_functions::project_root()
         .join("scripts/tool_comparison_venv/bin/python")
@@ -741,7 +891,9 @@ pub fn run_bad_guide_summary(
 
     let mut cmd = Command::new(venv_python);
     cmd.arg(script_path)
-        .arg("--input").arg(csv_path.to_string_lossy().to_string())
+        .arg("--input").arg(stats_csv_path)
+        .arg("--distribution").arg(dist_csv_path.to_string_lossy().to_string())
+        .arg("--db_name").arg(db_name)
         .arg("--output-dir").arg(output_dir);
 
     debug!("Running: {cmd:?}");
@@ -761,82 +913,3 @@ pub fn run_bad_guide_summary(
         }
     }
 }
-//
-//
-// pub fn plot_bad_guide_summary(df_sum: &DataFrame, out_path: &str) -> anyhow::Result<()> {
-//     // ── unpack data ──────────────────────────────────────────────────
-//     let mut tools: Vec<String> = df_sum
-//         .column("tool")?.str()?.into_no_null_iter()
-//         .map(|s| s.to_string()).collect();
-//     let pcts: Vec<f64> = df_sum
-//         .column("pct_correct")?.f64()?.into_no_null_iter().collect();
-//     let n = tools.len();
-//
-//     // truncate very long names for tick labels
-//     for name in &mut tools {
-//         if name.chars().count() > 20 {
-//             *name = format!("{}…", name.chars().take(18).collect::<String>());
-//         }
-//     }
-//
-//     // ── Okabe-Ito 8-colour palette ───────────────────────────────────
-//     let palette = [
-//         RGBColor(0, 119, 187),  RGBColor(255, 158, 74),
-//         RGBColor(0, 158, 115),  RGBColor(213, 94, 0),
-//         RGBColor(204, 121, 167), RGBColor(255, 102, 102),
-//         RGBColor(128, 128, 128), RGBColor(171, 171, 0),
-//     ];
-//
-//     // ── canvas ───────────────────────────────────────────────────────
-//     let root = BitMapBackend::new(out_path, (1050, 600)).into_drawing_area();
-//     root.fill(&WHITE)?;
-//
-//     let y_max = pcts.iter().cloned().fold(0./0., f64::max).ceil();
-//
-//     // NOTE the X-range is now **f64** so the bar coordinates match
-//     let mut chart = ChartBuilder::on(&root)
-//         .caption("Tool identifies the lowest-scoring guide as truly Poor", ("sans-serif", 22))
-//         .margin(15)
-//         .x_label_area_size(160)
-//         .y_label_area_size(70)
-//         .build_cartesian_2d(0f64..n as f64, 0f64..y_max)?;
-//
-//     chart.configure_mesh()
-//         .disable_mesh()
-//         .y_desc("% of genes (higher = better)")
-//         .y_label_formatter(&|v| format!("{v:.0}%"))
-//         .x_labels(n)
-//         .x_label_formatter(&|v| {
-//             let idx = *v as usize;
-//             if idx < tools.len() { tools[idx].clone() } else { String::new() }
-//         })
-//         .label_style(("sans-serif", 14))
-//         .x_label_style(("sans-serif", 13).into_font().transform(FontTransform::Rotate90))
-//         .axis_desc_style(("sans-serif", 16))
-//         .draw()?;
-//
-//     // gap = 10 % of the 1-unit slot width
-//     let gap = 0.10;
-//
-//     // ── bars ─────────────────────────────────────────────────────────
-//     chart.draw_series(
-//         pcts.iter().enumerate().map(|(i, pct)| {
-//             let x0 = i as f64 + gap;
-//             let x1 = (i + 1) as f64 - gap;
-//             Rectangle::new([(x0, 0.0), (x1, *pct)],
-//                            palette[i % palette.len()].filled())
-//         }),
-//     )?;
-//
-//     // ── value labels ────────────────────────────────────────────────
-//     chart.draw_series(
-//         pcts.iter().enumerate().map(|(i, pct)| {
-//             Text::new(format!("{pct:.1}%"),
-//                       (i as f64 + 0.5, pct + 1.0),     // centred, 1 % above bar
-//                       ("sans-serif", 14).into_font().color(&BLACK))
-//         }),
-//     )?;
-//
-//     Ok(())
-// }
-//

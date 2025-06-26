@@ -1,3 +1,4 @@
+use log::warn;
 use std::error::Error;
 use std::fs::{File, create_dir_all};
 use std::io::{Write, BufRead};
@@ -65,7 +66,7 @@ pub fn calculate_efficacy_scores(mut df: DataFrame) -> PolarsResult<DataFrame> {
         ));
     }
 
-    // Define biologically meaningful log2FC thresholds based on CERES and related literature
+    // Define biologically meaningful log2FC thresholds based on CHRONOS and related literature
     // These represent fold-change magnitudes commonly associated with significant effects
     let severe_depletion: f64 = -3.0;    // >8x depletion (2^3)
     let strong_depletion: f64 = -2.0;    // >4x depletion (2^2)
@@ -75,7 +76,7 @@ pub fn calculate_efficacy_scores(mut df: DataFrame) -> PolarsResult<DataFrame> {
     info!("Using biologically meaningful LFC thresholds from https://pubmed.ncbi.nlm.nih.gov/29083409/:");
     info!("  Severe depletion (90-100): LFC ≤ {:.2} (>8x depletion)", severe_depletion);
     info!("  Strong depletion (70-89): LFC ≤ {:.2} (>4x depletion)", strong_depletion);
-    info!("  Moderate depletion (40-69): LFC ≤ {:.2} (>2x depletion)", moderate_depletion);
+    info!("  Moderate depletion (60-69): LFC ≤ {:.2} (>2x depletion)", moderate_depletion);
     info!("  Weak depletion (20-39): LFC ≤ {:.2} (>1.5x depletion)", weak_depletion);
     info!("  Minimal effect (1-19): LFC between {:.2} and 0", weak_depletion);
     info!("  No effect (0): LFC ≥ 0");
@@ -83,7 +84,6 @@ pub fn calculate_efficacy_scores(mut df: DataFrame) -> PolarsResult<DataFrame> {
     // Extract the log2FC series
     let lfc_series = df.column("mageck_log2fc")?.f64()?;
 
-    // LFC-only approach
     let efficacy_ca: Float64Chunked = lfc_series
         .into_iter()
         .map(|lfc_opt| {
@@ -94,27 +94,33 @@ pub fn calculate_efficacy_scores(mut df: DataFrame) -> PolarsResult<DataFrame> {
                     let abs_lfc = lfc.abs();
 
                     if abs_lfc >= severe_depletion.abs() {
+                        // Severe depletion: 90-100
                         let beyond_severe = ((abs_lfc - severe_depletion.abs()) / 3.0).min(1.0);
                         90.0 + (beyond_severe * 10.0)
                     } else if abs_lfc >= strong_depletion.abs() {
+                        // Strong depletion: 80-89
                         let range_position = (abs_lfc - strong_depletion.abs()) /
                             (severe_depletion.abs() - strong_depletion.abs());
-                        70.0 + (range_position * 20.0)
+                        80.0 + (range_position * 10.0)
                     } else if abs_lfc >= moderate_depletion.abs() {
+                        // Moderate depletion: 60-79
                         let range_position = (abs_lfc - moderate_depletion.abs()) /
                             (strong_depletion.abs() - moderate_depletion.abs());
-                        40.0 + (range_position * 30.0)
+                        60.0 + (range_position * 20.0)
                     } else if abs_lfc >= weak_depletion.abs() {
+                        // Weak depletion: 20-59 (extended to fill gap)
                         let range_position = (abs_lfc - weak_depletion.abs()) /
                             (moderate_depletion.abs() - weak_depletion.abs());
-                        20.0 + (range_position * 20.0)
+                        20.0 + (range_position * 40.0)
                     } else {
+                        // Minimal effect: 1-19
                         1.0 + ((abs_lfc / weak_depletion.abs()) * 19.0)
                     }
                 }
             })
         })
         .collect();
+
 
     // Create the new efficacy column
     let efficacy_s = Series::new("efficacy".into(), efficacy_ca);

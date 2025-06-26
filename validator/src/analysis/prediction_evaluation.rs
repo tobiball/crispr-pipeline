@@ -34,6 +34,7 @@ pub fn evaluate_prediction_tools(
     efficacy_good_threshold: f64,
     min_good_coverage: f64,
     output_dir: &str,
+    db_name: &str,
 ) -> PolarsResult<()> {
     info!("Evaluating prediction tools with visualization");
 
@@ -93,6 +94,7 @@ pub fn evaluate_prediction_tools(
         .arg("--input").arg(&temp_csv_path)
         .arg("--output").arg(output_dir)
         .arg("--efficacy-col").arg(efficacy_column)
+        .arg("--db_name").arg(db_name)
         .arg("--poor-threshold").arg(efficacy_poor_threshold.to_string())
         .arg("--good-threshold").arg(efficacy_good_threshold.to_string());
 

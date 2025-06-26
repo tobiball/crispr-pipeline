@@ -379,3 +379,237 @@ pub fn stratified_within_gene_balance(
 
     Ok((balanced.drop("__bucket")?, stats))
 }
+
+
+pub fn stratified_within_gene_balance_with_margin(
+    df: &DataFrame,
+    efficacy_col: &str,
+    margin_low: f64,   // e.g., 75.0
+    margin_high: f64,  // e.g., 85.0
+    seed: Option<u64>,
+) -> PolarsResult<(DataFrame, StratifiedSampleStats)> {
+    // ── 0) Create buckets: "poor" < 75, "ignore" 75-85, "good" > 85 ─────
+    let with_bucket = df
+        .clone()
+        .lazy()
+        .with_column(
+            when(col(efficacy_col).lt(lit(margin_low)))
+                .then(lit("poor"))
+                .when(col(efficacy_col).gt(lit(margin_high)))
+                .then(lit("good"))
+                .otherwise(lit("ignore"))  // This is our safety zone!
+                .alias("__bucket"),
+        )
+        .collect()?;
+
+    // ── 1) Filter out the "ignore" zone entirely ─────────────────────────
+    let usable_data = with_bucket
+        .clone()
+        .lazy()
+        .filter(col("__bucket").neq(lit("ignore")))
+        .collect()?;
+
+    // ── 2) Find genes that have BOTH good AND poor guides ───────────────
+    let genes_keep = usable_data
+        .clone()
+        .lazy()
+        .group_by([col("Gene")])
+        .agg([
+            col("__bucket").n_unique().alias("nq"),
+            col("Gene").count().alias("n_usable"),
+        ])
+        .filter(col("nq").eq(lit(2)))  // Must have both "good" and "poor"
+        .select([col("Gene")])
+        .collect()?;
+
+    // ── 3) Track which genes we're keeping/dropping ─────────────────────
+    let all_genes: HashSet<_> = df
+        .column("Gene")?
+        .str()?
+        .into_no_null_iter()
+        .map(String::from)
+        .collect();
+
+    let kept_gene_set: HashSet<_> = genes_keep
+        .column("Gene")?
+        .str()?
+        .into_no_null_iter()
+        .map(String::from)
+        .collect();
+
+    let dropped_genes: Vec<_> = all_genes.difference(&kept_gene_set).cloned().collect();
+
+    // ── 4) Keep only eligible genes and usable guides ───────────────────
+    let eligible = usable_data.join(
+        &genes_keep,
+        ["Gene"],
+        ["Gene"],
+        JoinArgs::from(JoinType::Inner),
+        None,
+    )?;
+
+    // ── 5) Balance within each gene (equal good/poor) ───────────────────
+    let balanced = eligible
+        .group_by_stable(["Gene"])?
+        .apply(|g| {
+            let good = g.filter(&g.column("__bucket")?.str()?.equal("good"))?;
+            let poor = g.filter(&g.column("__bucket")?.str()?.equal("poor"))?;
+            let k = good.height().min(poor.height());
+            if k == 0 {
+                return Ok(DataFrame::empty());
+            }
+            let sample = |df: DataFrame| df.sample_n_literal(k, false, true, seed);
+            let mut keep = sample(good)?;
+            keep.vstack_mut(&sample(poor)?)?;
+            Ok(keep)
+        })?;
+
+    // ── 6) Calculate statistics ─────────────────────────────────────────
+    let guides_per_gene = balanced
+        .clone()
+        .lazy()
+        .group_by([col("Gene")])
+        .agg([col("Gene").count().alias("n_guides_kept")])
+        .collect()?;
+
+    // Include margin zone stats
+    let margin_stats = with_bucket
+        .clone()
+        .lazy()
+        .group_by([col("Gene")])
+        .agg([
+            col("Gene").count().alias("n_total"),
+            col("__bucket").filter(col("__bucket").eq(lit("ignore")))
+                .count().alias("n_in_margin"),
+            col("__bucket").filter(col("__bucket").eq(lit("good")))
+                .count().alias("n_good_eligible"),
+            col("__bucket").filter(col("__bucket").eq(lit("poor")))
+                .count().alias("n_poor_eligible"),
+        ])
+        .collect()?;
+
+    let mut per_gene_stats = margin_stats
+        .join(
+            &guides_per_gene,
+            ["Gene"],
+            ["Gene"],
+            JoinArgs::from(JoinType::Left),
+            None,
+        )?
+        .lazy()
+        .with_column(
+            col("n_guides_kept").fill_null(lit(0)).alias("n_guides_kept"),
+        )
+        .with_column(
+            when(col("n_guides_kept").eq(lit(0)))
+                .then(lit("dropped"))
+                .otherwise(lit("kept"))
+                .alias("status"),
+        )
+        .with_column(
+            (col("n_in_margin").cast(DataType::Float64) / col("n_total").cast(DataType::Float64))
+                .alias("pct_in_margin"),
+        )
+        .collect()?;
+
+    // Save detailed stats
+    let csv_out = "./stats/stratified_margin_balance_stats.csv";
+    dataframe_to_csv(&mut per_gene_stats, csv_out, true)?;
+
+    // Log summary info
+    info!(
+        "Margin zone [{}-{}]: Kept {} of {} genes",
+        margin_low, margin_high, kept_gene_set.len(), all_genes.len()
+    );
+
+    let stats = StratifiedSampleStats {
+        total_genes: all_genes.len(),
+        kept_genes: kept_gene_set.len(),
+        dropped_genes,
+        guides_per_gene,
+    };
+
+    Ok((balanced.drop("__bucket")?, stats))
+}
+
+
+// In your Rust helper_functions.rs or main.rs
+
+use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
+
+/// RGB color representation that can be serialized
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl Color {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+
+    /// Convert to normalized RGB tuple for Python
+    pub fn to_normalized(&self) -> (f32, f32, f32) {
+        (
+            self.r as f32 / 255.0,
+            self.g as f32 / 255.0,
+            self.b as f32 / 255.0,
+        )
+    }
+}
+
+/// Model color mappings that can be passed to Python
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ModelColors {
+    colors: HashMap<String, Color>,
+}
+
+impl ModelColors {
+    pub fn new() -> Self {
+        let mut colors = HashMap::new();
+
+        // Foundational models - Different gray shades
+        colors.insert("TKO PSSM".to_string(), Color::new(80, 80, 80));          // Dark gray
+        colors.insert("Moreno-Mateos".to_string(), Color::new(130, 130, 130));  // Medium gray
+
+        // Classical ML - Different blue shades
+        colors.insert("Doench Rule Set 2".to_string(), Color::new(31, 119, 180)); // Standard blue
+        colors.insert("Doench Rule Set 3".to_string(), Color::new(70, 130, 200)); // Lighter blue
+
+        // CNN models - Different orange/red shades
+        colors.insert("DeepCRISPR".to_string(), Color::new(255, 127, 14));       // Orange
+        colors.insert("DeepSpCas9".to_string(), Color::new(255, 87, 51));        // Red-orange
+
+        // Transformer models - Purple shades
+        colors.insert("TransCRISPR".to_string(), Color::new(200, 120, 189));     // Standard purple
+
+        // Ensemble/Consensus models - Different green shades
+        colors.insert("Linear Consensus".to_string(), Color::new(44, 160, 44));   // Standard green
+        colors.insert("Logistic Consensus".to_string(), Color::new(60, 180, 60)); // Lighter green
+
+        Self { colors }
+    }
+
+    pub fn get_color(&self, model_name: &str) -> Option<Color> {
+        self.colors.get(model_name).copied()
+    }
+
+    pub fn add_model(&mut self, model_name: String, color: Color) {
+        self.colors.insert(model_name, color);
+    }
+
+    /// Export colors as JSON string for passing to Python
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(&self.colors)
+    }
+
+    /// Save colors to a JSON file
+    pub fn save_to_file(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string_pretty(&self.colors)?;
+        std::fs::write(path, json)?;
+        Ok(())
+    }
+}

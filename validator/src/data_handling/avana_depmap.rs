@@ -152,6 +152,7 @@ impl Dataset for AvanaDataset {
 
 
 
+
         Ok(df)
     }
 
@@ -250,11 +251,27 @@ pub fn augment_guides_with_pam(mut df: DataFrame) -> PolarsResult<DataFrame> {
         .filter(&(&chr_col.is_not_null() & &start_col.is_not_null()
             & strand_col.is_not_null() & guide_col.is_not_null()))?;
 
-    // finally tack on the three new columns
-    df = df
-        .with_column(Series::new("sequence_deepspcas9".into(), sequences_deepspcas9))?
-        .with_column(Series::new("pam".into(), pam_sequences))?
-        .with_column(Series::new("sequence_with_pam".into(), sequences_with_pam))?.clone();
+    use polars::prelude::*;
+
+    // helper: turn Vec<String> → Series (use an empty name; we’ll alias later)
+    let seq30  = Series::new(PlSmallStr::from(""), sequences_deepspcas9);
+    let pams   = Series::new(PlSmallStr::from(""), pam_sequences);
+    let seq23  = Series::new(PlSmallStr::from(""), sequences_with_pam);
+
+    df = df.lazy()
+        .with_columns([
+            lit(seq30.clone()).alias("sequence_deepspcas9"),
+            lit(pams.clone()).alias("pam"),
+            lit(seq23.clone()).alias("sequence_with_pam"),
+        ])
+        .with_columns([                                   // now upper-case them
+            col("pam").str().to_uppercase().alias("pam"),
+            col("sequence_deepspcas9").str().to_uppercase().alias("sequence_deepspcas9"),
+            col("sequence_with_pam").str().to_uppercase().alias("sequence_with_pam"),
+        ])
+        .collect()?;
+
+
 
     // drop your helper if you like
     Ok(df.drop("split_parts")?)

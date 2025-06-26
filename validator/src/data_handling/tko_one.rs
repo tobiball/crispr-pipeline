@@ -93,6 +93,7 @@ fn cell_to_string(cell: &calamine::DataType) -> String {
 }
 
 /// Minimal xlsx→String DF loader (same helper Avana uses)
+/// Improved xlsx→DataFrame loader with proper numeric type detection
 fn read_excel(path: &str, sheet_idx: usize) -> PolarsResult<DataFrame> {
     use calamine::{open_workbook_auto, Reader};
 
@@ -111,24 +112,69 @@ fn read_excel(path: &str, sheet_idx: usize) -> PolarsResult<DataFrame> {
         .collect();
     debug!("Read-counts header = {:?}", headers);
 
-    let mut cols: Vec<Vec<Option<String>>> =
-        vec![Vec::with_capacity(range.height()); headers.len()];
-    for row in rows {
-        for (i, cell) in row.iter().enumerate() {
-            cols[i].push(match cell {
-                calamine::DataType::Empty => None,
-                _ => Some(cell_to_string(cell)),
-            });
+    // Determine which columns should be numeric based on header patterns
+    let is_count_column = |header: &str| -> bool {
+        header.contains("_R") && (
+            header.contains("_T0_") ||
+                header.contains("_T12_") ||
+                header.contains("_T16_") ||
+                header.contains("_UT_") ||
+                header.contains("_IlludinS_")
+        )
+    };
+
+    // Build columns with proper types
+    let mut cols: Vec<Series> = Vec::with_capacity(headers.len());
+
+    for (col_idx, header) in headers.iter().enumerate() {
+        let mut rows = range.rows();
+        rows.next(); // Skip header row
+
+        if is_count_column(header) {
+            // This is a count column - parse as i64
+            debug!("Parsing {} as numeric count column", header);
+            let mut values: Vec<Option<i64>> = Vec::new();
+
+            for row in rows {
+                let val = if let Some(cell) = row.get(col_idx) {
+                    match cell {
+                        calamine::DataType::Int(i) => Some(*i),
+                        calamine::DataType::Float(f) => Some(*f as i64),
+                        calamine::DataType::String(s) => {
+                            // Try to parse string as number
+                            s.trim().parse::<i64>().ok()
+                        }
+                        calamine::DataType::Empty => Some(0), // Empty cells = 0 counts
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
+                values.push(val);
+            }
+
+            // Create series with null handling
+            cols.push(Series::new(PlSmallStr::from(header), values));
+        } else {
+            // Non-count column - keep as string
+            let mut values: Vec<Option<String>> = Vec::new();
+
+            for row in rows {
+                let val = row.get(col_idx).map(|cell| match cell {
+                    calamine::DataType::Empty => None,
+                    c => Some(cell_to_string(c)),
+                }).flatten();
+                values.push(val);
+            }
+
+            cols.push(Series::new(PlSmallStr::from(header), values));
         }
     }
 
-    let series: Vec<Series> = headers
-        .into_iter()
-        .zip(cols)
-        .map(|(h, c)| Series::new(PlSmallStr::from(h), c))
-        .collect();
+    let df = DataFrame::new(cols.into_iter().map(Into::into).collect())?;
 
-    DataFrame::new(series.into_iter().map(Into::into).collect())
+
+    Ok(df)
 }
 
 // ─── read_tko_annotation ─────────────────────────────────────────────────────
@@ -566,19 +612,31 @@ impl Dataset for TkoScreensDataset {
         let screen_vals = vec![ScreenKind::IlludinS_WT.to_string(); num_rows];
         df = df.with_column(Series::new(PlSmallStr::from("screen"), screen_vals))?.clone();
 
+
+
         Ok(df)
     }
 
     fn augment_guides(df: DataFrame) -> PolarsResult<DataFrame> {
         // Perform re-anchoring here:
         let df_reanchored = reanchor_with_window(df)?;
-        Ok(df_reanchored)
+        let df = df_reanchored.lazy()
+            .with_columns([
+                col("pam").str().to_uppercase().alias("pam"),
+                col("sequence_deepspcas9").str().to_uppercase().alias("sequence_deepspcas9"),
+                col("sequence_with_pam").str().to_uppercase().alias("sequence_with_pam"),
+            ])
+            .collect()?;
+        Ok(df)
     }
 
     fn mageck_efficency_scoring(mut df: DataFrame) -> PolarsResult<DataFrame> {
         let buckets = ColumnBuckets::wt_illudins();
         let treat: Vec<String> = buckets.ut_treat.iter().map(|s| s.to_string()).collect();
         let ctrl: Vec<String> = buckets.t0_ctrl.iter().map(|s| s.to_string()).collect();
+
+        // check_essentialome_depletion(&df)?;
+
 
         info!(
             "Running MAGeCK with {} ctrl and {} treat replicates",
@@ -643,4 +701,116 @@ mod tests {
             }
         }
     }
+}
+
+pub fn check_essentialome_depletion(df: &DataFrame) -> PolarsResult<()> {
+    info!("=== Checking for essentialome depletion pattern ===");
+
+    // Calculate average counts for each guide at T0 and T12
+    let t0_cols = vec!["WT_T0_R1", "WT_T0_R2", "WT_T0_R3"];
+    let t12_cols = vec!["WT_UT_T12_R1", "WT_UT_T12_R2", "WT_UT_T12_R3"];
+
+    // First, ensure count columns are numeric
+    let mut df_numeric = df.clone();
+    for col_name in t0_cols.iter().chain(t12_cols.iter()) {
+        if let Ok(col) = df_numeric.column(col_name) {
+            if col.dtype() == &DataType::String {
+                info!("Converting {} from String to Int64", col_name);
+                // Cast string column to i64
+                let numeric_col = col
+                    .cast(&DataType::Int64)
+                    .map_err(|_| polars_err(format!("Failed to convert {} to numeric", col_name).into()))?;
+                df_numeric.with_column(numeric_col)?;
+            }
+        }
+    }
+
+    // Create expressions for averaging with proper casting
+    let t0_avg = (
+        col(&*t0_cols[0]).cast(DataType::Float64) +
+            col(&*t0_cols[1]).cast(DataType::Float64) +
+            col(&*t0_cols[2]).cast(DataType::Float64)
+    ) / lit(3.0);
+
+    let t12_avg = (
+        col(&*t12_cols[0]).cast(DataType::Float64) +
+            col(&*t12_cols[1]).cast(DataType::Float64) +
+            col(&*t12_cols[2]).cast(DataType::Float64)
+    ) / lit(3.0);
+
+    // Calculate fold changes
+    let df_with_fc = df_numeric.clone().lazy()
+        .with_columns([
+            t0_avg.alias("avg_t0"),
+            t12_avg.alias("avg_t12"),
+        ])
+        .with_column(
+            (col("avg_t12") / col("avg_t0")).alias("fold_change")
+        )
+        .collect()?;
+
+    // Analyze fold changes
+    let fc_stats = df_with_fc.clone().lazy()
+        .select([
+            col("fold_change").filter(col("fold_change").is_finite()).count().alias("valid_fc_count"),
+            col("fold_change").filter(col("fold_change").lt(lit(0.5))).count().alias("depleted_count"),
+            col("fold_change").filter(col("fold_change").lt(lit(0.25))).count().alias("strongly_depleted_count"),
+            col("fold_change").filter(col("fold_change").eq(lit(0.0))).count().alias("zero_at_t12_count"),
+        ])
+        .collect()?;
+
+    let valid_count = fc_stats.column("valid_fc_count")?.u32()?.get(0).unwrap_or(0);
+    let depleted = fc_stats.column("depleted_count")?.u32()?.get(0).unwrap_or(0);
+    let strongly_depleted = fc_stats.column("strongly_depleted_count")?.u32()?.get(0).unwrap_or(0);
+    let zero_at_t12 = fc_stats.column("zero_at_t12_count")?.u32()?.get(0).unwrap_or(0);
+
+    info!("Depletion analysis (T12/T0):");
+    info!("  Valid fold changes: {}", valid_count);
+    info!("  Guides with >2-fold depletion (FC < 0.5): {} ({:.1}%)",
+          depleted, 100.0 * depleted as f64 / valid_count as f64);
+    info!("  Guides with >4-fold depletion (FC < 0.25): {} ({:.1}%)",
+          strongly_depleted, 100.0 * strongly_depleted as f64 / valid_count as f64);
+    info!("  Guides with zero counts at T12: {} ({:.1}%)",
+          zero_at_t12, 100.0 * zero_at_t12 as f64 / valid_count as f64);
+
+    // Sample some genes to see their patterns
+    info!("\nSample of gene depletion patterns:");
+    let sample = df_with_fc.head(Some(10));
+    for i in 0..sample.height() {
+        let gene = sample.column("Gene")?.get(i)?.to_string();
+        let guide = sample.column("sgRNA")?.get(i)?.to_string();
+        let t0 = sample.column("avg_t0")?.get(i)?;
+        let t12 = sample.column("avg_t12")?.get(i)?;
+        let fc = sample.column("fold_change")?.get(i)?;
+
+        info!("  {} ({}): T0={}, T12={}, FC={}", gene, guide, t0, t12, fc);
+    }
+
+        for col_name in t0_cols.iter().chain(t12_cols.iter()) {
+            if let Ok(series) = df_numeric.column(col_name) {
+            let total = match series.dtype() {
+                DataType::Int64 => series
+                   .i64().unwrap()             // downcast to Int64Chunked
+                    .sum()                      // Option<i64>
+                    .map(|v| v as f64),
+                DataType::Float64 => series
+                    .f64().unwrap()             // downcast to Float64Chunked
+                    .sum(),                     // Option<f64>
+                _ => None,
+            };
+            if let Some(t) = total {
+                info!("  {}: {:.0} reads", col_name, t);
+            }
+        }
+    }
+    // Warning if depletion looks wrong
+    if depleted < valid_count / 10 {  // Less than 10% showing depletion
+        warn!("WARNING: Very few guides show depletion! This doesn't look like essential genes.");
+        warn!("Check if:");
+        warn!("  1. The count data is being read correctly");
+        warn!("  2. These are actually essential genes");
+        warn!("  3. The library targets functional sites in genes");
+    }
+
+    Ok(())
 }
