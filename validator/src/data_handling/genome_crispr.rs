@@ -12,14 +12,10 @@ use crate::models::{polars_err, Dataset};
 // Some helper for reading CSV:
 use crate::helper_functions::read_csv;
 
-/// A struct representing the GenomeCRISPR dataset
 pub struct GenomeCrisprDatasets {
     pub path: String,
 }
 
-/// Rename columns from whatever the CSV actually has
-/// to what our code internally expects.
-/// Adjust these to match your real CSV headers!
 fn rename_columns(mut df: DataFrame) -> PolarsResult<DataFrame> {
     df.rename("chr", PlSmallStr::from("chromosome"))?;
     df.rename("sequence", PlSmallStr::from("sgRNA"))?;

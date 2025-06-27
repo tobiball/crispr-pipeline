@@ -30,19 +30,6 @@ pub fn get_nucleotide_index(nucleotide: char) -> Option<usize> {
     }
 }
 
-/// Calculate a guide score based on the position-specific scoring matrix
-///
-/// # Arguments
-///
-/// * `guide_sequence` - The 20nt guide RNA sequence (without PAM)
-///
-/// # Returns
-///
-/// * A score indicating predicted efficiency (higher is better)
-///
-/// # Errors
-///
-/// * Returns `None` if the sequence is not exactly 20nt or contains invalid nucleotides
 pub fn calculate_pssm_score(guide_sequence: &str) -> Option<f64> {
     // Validate sequence length
     if guide_sequence.len() != 20 {
@@ -86,16 +73,7 @@ pub fn normalize_score(raw_score: f64) -> f64 {
     normalized.clamp(0.0, 100.0)
 }
 
-/// Apply the PSSM prediction to a DataFrame
-///
-/// # Arguments
-///
-/// * `df` - DataFrame containing guide sequences
-/// * `sequence_column` - Name of column containing guide sequences
-///
-/// # Returns
-///
-/// * A DataFrame with an additional 'pssm_score' column
+
 pub fn process_dataframe(df: &DataFrame, sequence_column: &str) -> PolarsResult<DataFrame> {
     // Extract the sequence column
     let seq_series = df.column(sequence_column)?;
@@ -137,17 +115,7 @@ pub fn process_dataframe(df: &DataFrame, sequence_column: &str) -> PolarsResult<
     Ok(result_df)
 }
 
-/// Run the PSSM prediction on a DataFrame and save results
-///
-/// # Arguments
-///
-/// * `df` - Input DataFrame
-/// * `sequence_column` - Column containing guide sequences
-/// * `output_path` - Where to save the results
-///
-/// # Returns
-///
-/// * Result indicating success or failure
+
 pub fn run_pssm_meta(df: DataFrame, sequence_column: &str, database_name: &str) -> PolarsResult<DataFrame> {
     info!("Running PSSM prediction analysis on {} guides", df.height());
 

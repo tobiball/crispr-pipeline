@@ -13,18 +13,11 @@ const GENOME: &str = "hg38";
 
 use std::time::Instant;
 use log::{error, info};
-// ...
 
 pub fn run_crispor_meta(df: DataFrame, database_name: &str) -> PolarsResult<(DataFrame)> {
-    // (1) Limit the DataFrame to 450 guides for testing:
-    //     (If your df has <= 450 rows, you can skip or adjust.)
 
-    // (2) Start timing
     let start_time = Instant::now();
 
-    // ----------------------------
-    // Build the multi‐record FASTA
-    // ----------------------------
     let guide_column = df.column("sequence_with_pam")?;
     let guides_str = guide_column.str()?;
 
@@ -55,12 +48,8 @@ pub fn run_crispor_meta(df: DataFrame, database_name: &str) -> PolarsResult<(Dat
 
     if !status.success() {
         error!("CRISPOR command failed with status: {:?}", status);
-        // handle error accordingly
     }
 
-    // ----------------------------
-    // Read CRISPOR output & join
-    // ----------------------------
     let crispor_results = read_txt(&output_file)?;
     let mut df_joined = df.left_join(&crispor_results, ["sequence_with_pam"], ["targetSeq"])?;
 

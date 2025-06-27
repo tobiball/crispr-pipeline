@@ -1,11 +1,4 @@
 // src/data_handling/tko_one.rs
-// -----------------------------------------------------------------------------
-// This version defers re-anchoring to `augment_guides()`.
-// `load()` only reads & joins; `augment_guides()` performs the ±REANCHOR_PAD window search.
-// Debug prints have been added around PAM extraction to catch non‐NGG cases.
-// A new “raw_sequence_debug” column now captures the ±3 nt around the matched protospacer,
-// oriented in the same 5′→3′ direction as the guide (so “−”-strand matches get reverse‐complemented).
-// -----------------------------------------------------------------------------
 
 use polars::lazy::dsl::*;
 use polars::prelude::*;
@@ -298,19 +291,7 @@ fn reverse_complement(seq: &str) -> String {
         .collect()
 }
 
-// ─── reanchor_with_window ────────────────────────────────────────────────────
 
-/// For each row (CODE, sgRNA, chromosome, strand, position), fetch a ±REANCHOR_PAD window
-/// in hg38, find the guide (or its reverse complement) inside that window, and recompute:
-///   - debug_start           = 1-based protospacer start in hg38
-///   - position              = debug_start + 17 (if +) or +6 (if −)
-///   - start, end            = protospacer start and end (length 19 or 20)
-///   - sequence_deepspcas9   = 30 nt (−4..+25) around the cut, oriented to + strand
-///   - pam                   = 3 nt PAM (positions 20..23 of the 23 nt region, oriented correctly)
-///   - sequence_with_pam     = 20 nt guide (extended if 19 nt) + PAM, all on the “+” orientation
-///   - raw_sequence_debug    = 3 nt upstream + matched protospacer + 3 nt downstream, oriented
-///                            in the same 5′→3′ direction as the guide itself
-///   - coord_offset          = debug_start − (old_anchor), where old_anchor = position−17 (if +) or +6 (if −)
 fn reanchor_with_window(mut df: DataFrame) -> PolarsResult<DataFrame> {
     let chr_col = df.column("chromosome")?.str().unwrap();
     let old_pos_col = df.column("position")?.i64().unwrap();

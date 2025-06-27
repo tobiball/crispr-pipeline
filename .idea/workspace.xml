@@ -7,23 +7,25 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Added various analysis scripts">
-      <change afterPath="$PROJECT_DIR$/scripts/run_key_diagrams.sh" afterDir="false" />
+    <list default="true" id="cbe63536-aa83-4b75-a93d-bb00027b5b41" name="Changes" comment="Configuration and within gene analysis">
+      <change afterPath="$PROJECT_DIR$/lift_over_to_hg38/dedup_tko_hg38_cut.bed" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lift_over_to_hg38/hg19ToHg38.over.chain" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lift_over_to_hg38/liftOver" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lift_over_to_hg38/make_hg19_cut_bed.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lift_over_to_hg38/merge_lifted_to_hg38.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lift_over_to_hg38/tko_hg19_cut.bed" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lift_over_to_hg38/tko_hg38_cut.bed" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lift_over_to_hg38/tko_unmapped.bed" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crispor" beforeDir="false" afterPath="$PROJECT_DIR$/crispor" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/crispr_prediction_evaluation.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/crispr_prediction_evaluation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/efficacy_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/efficacy_analysis.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/validator/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/analysis/efficacy_analysis_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/analysis/efficacy_analysis_integration.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/analysis/tool_comparison.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/analysis/tool_comparison.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/analysis/within_gene.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/analysis/within_gene.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/avana_depmap.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/helper_functions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/helper_functions.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run_key_diagrams.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/genome_crispr.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/data_handling/tko_one.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/data_handling/tko_one.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/models.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/crispor_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/crispor_integration.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/deepcrispr_integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/deepcrispr_integration.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/validator/src/prediction_tools/tko_pssm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/validator/src/prediction_tools/tko_pssm.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -43,7 +45,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="genome_crispr" />
+        <entry key="$PROJECT_DIR$" value="pyt" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -76,13 +78,15 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Cargo.Debug.executor": "Run",
+    "Cargo.Run validator.executor": "Run",
     "Cargo.Run.executor": "Run",
+    "Cargo.Test tko_one.executor": "Run",
     "Python.chronos_genome_crisp.executor": "Run",
     "Python.chronos_run.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "/home/mrcrispr/crispr_pipeline/data/depmap",
+    "last_opened_file_path": "/home/mrcrispr/crispr_pipeline/scripts",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -103,18 +107,18 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/data/depmap" />
-      <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/validator/src" />
+      <recent name="$PROJECT_DIR$/scripts" />
+      <recent name="$PROJECT_DIR$/prediction_evaluation_results" />
+      <recent name="$PROJECT_DIR$/data/tko" />
       <recent name="$PROJECT_DIR$/data" />
-      <recent name="$PROJECT_DIR$/validator/src/prediction_tools" />
+      <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/scripts" />
+      <recent name="$PROJECT_DIR$/data/tko" />
+      <recent name="$PROJECT_DIR$/validator/src/analysis" />
+      <recent name="$PROJECT_DIR$/analysis_archive" />
       <recent name="$PROJECT_DIR$/DeepSpCas9/genet_models/DeepSpCas9" />
-      <recent name="$PROJECT_DIR$/DeepSpCas9/genet_models" />
-      <recent name="$PROJECT_DIR$/DeepSpCas9" />
-      <recent name="$PROJECT_DIR$/processed_data" />
-      <recent name="$PROJECT_DIR$/crispor" />
     </key>
   </component>
   <component name="RunManager" selected="Cargo.Debug">
@@ -137,9 +141,45 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration name="Run validator" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="run --package validator --bin validator" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="dev" />
       <option name="command" value="run" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$/validator" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test tko_one" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="buildProfileId" value="test" />
+      <option name="command" value="test --package validator --bin validator data_handling::tko_one" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs />
       <option name="emulateTerminal" value="true" />
       <option name="channel" value="DEFAULT" />
@@ -180,8 +220,16 @@
     <list>
       <item itemvalue="Cargo.Debug" />
       <item itemvalue="Cargo.Run" />
+      <item itemvalue="Cargo.Run validator" />
+      <item itemvalue="Cargo.Test tko_one" />
       <item itemvalue="Python.chronos_run" />
     </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Cargo.Run validator" />
+        <item itemvalue="Cargo.Test tko_one" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$PROJECT_DIR$/../.cargo/bin" />
@@ -313,7 +361,36 @@
       <workItem from="1747141076225" duration="4667000" />
       <workItem from="1747218628524" duration="1511000" />
       <workItem from="1747234581648" duration="894000" />
-      <workItem from="1747646195362" duration="5170000" />
+      <workItem from="1747646195362" duration="10555000" />
+      <workItem from="1747676962344" duration="989000" />
+      <workItem from="1747740077987" duration="8033000" />
+      <workItem from="1747819728139" duration="22083000" />
+      <workItem from="1747901990648" duration="11519000" />
+      <workItem from="1747920327058" duration="9249000" />
+      <workItem from="1748587530697" duration="83000" />
+      <workItem from="1748936001811" duration="2115000" />
+      <workItem from="1748956016392" duration="29878000" />
+      <workItem from="1749055088753" duration="1812000" />
+      <workItem from="1749122077377" duration="38857000" />
+      <workItem from="1749384016890" duration="3208000" />
+      <workItem from="1749627798953" duration="25302000" />
+      <workItem from="1749730999135" duration="3568000" />
+      <workItem from="1749758649952" duration="3000" />
+      <workItem from="1749793762975" duration="56679000" />
+      <workItem from="1749990405078" duration="12310000" />
+      <workItem from="1750072205590" duration="7137000" />
+      <workItem from="1750087443887" duration="19695000" />
+      <workItem from="1750159081986" duration="25161000" />
+      <workItem from="1750226672435" duration="1072000" />
+      <workItem from="1750230344142" duration="28645000" />
+      <workItem from="1750317415952" duration="27861000" />
+      <workItem from="1750435373385" duration="10843000" />
+      <workItem from="1750501306173" duration="47105000" />
+      <workItem from="1750670773971" duration="1351000" />
+      <workItem from="1750832929087" duration="3856000" />
+      <workItem from="1750850679145" duration="4885000" />
+      <workItem from="1750857086954" duration="4873000" />
+      <workItem from="1750930703074" duration="10271000" />
     </task>
     <task id="LOCAL-00001" summary="idea">
       <option name="closed" value="true" />
@@ -651,7 +728,47 @@
       <option name="project" value="LOCAL" />
       <updated>1744386481834</updated>
     </task>
-    <option name="localTasksCounter" value="43" />
+    <task id="LOCAL-00043" summary="Extensive analysis">
+      <option name="closed" value="true" />
+      <created>1747660926011</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1747660926011</updated>
+    </task>
+    <task id="LOCAL-00044" summary="Extensive analysis">
+      <option name="closed" value="true" />
+      <created>1749939163412</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1749939163412</updated>
+    </task>
+    <task id="LOCAL-00045" summary="Various updates">
+      <option name="closed" value="true" />
+      <created>1750941063072</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1750941063072</updated>
+    </task>
+    <task id="LOCAL-00046" summary="Refined analysis">
+      <option name="closed" value="true" />
+      <created>1750941123046</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1750941123046</updated>
+    </task>
+    <task id="LOCAL-00047" summary="Configuration and within gene analysis">
+      <option name="closed" value="true" />
+      <created>1750941314828</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1750941314828</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -663,6 +780,11 @@
         <entry key="Branch">
           <value>
             <list>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="main" />
+                </option>
+              </RecentGroup>
               <RecentGroup>
                 <option name="FILTER_VALUES">
                   <option value="genome_crispr" />
@@ -693,7 +815,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="genome_crispr" />
+                        <option value="main" />
                       </list>
                     </value>
                   </entry>
@@ -711,10 +833,6 @@
       <path value="$PROJECT_DIR$/DeepCRISPR" />
       <path value="$PROJECT_DIR$/mageck" />
     </ignored-roots>
-    <MESSAGE value="fix out path" />
-    <MESSAGE value="use relative paths" />
-    <MESSAGE value="clippy fix" />
-    <MESSAGE value="Comment out unused" />
     <MESSAGE value="Working Docker chopchop avana run" />
     <MESSAGE value="Small fixes" />
     <MESSAGE value="Resolve merge issues" />
@@ -736,18 +854,11 @@
     <MESSAGE value="Read in Crispor results" />
     <MESSAGE value="Improve program transferability" />
     <MESSAGE value="Added various analysis scripts" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added various analysis scripts" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/TransCrispr/PureNet.py</url>
-          <line>77</line>
-          <option name="timeStamp" value="1" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="Extensive analysis" />
+    <MESSAGE value="Various updates" />
+    <MESSAGE value="Refined analysis" />
+    <MESSAGE value="Configuration and within gene analysis" />
+    <option name="LAST_COMMIT_MESSAGE" value="Configuration and within gene analysis" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/crispr_pipeline$chronos_genome_crisp.coverage" NAME="chronos_genome_crisp Coverage Results" MODIFIED="1739262010840" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/chronos_run" />
